@@ -4,11 +4,11 @@ import { getInboxKind, GMAIL_DOMAINS } from "@/lib/inbox-routing"
 import { isInboxBlocked } from "@/lib/blocklist-store"
 
 /**
- * Leitura de caixas IMAP (Titan / HostGator).
- *
- * Este modulo concentra TODA a logica de IMAP que antes vivia dentro de
- * `app/api/gmail-inbox/route.ts`. Tanto a rota interna do site quanto a API
- * publica (`/api/v1/inbox`) importam daqui, para nunca divergirem.
+ * IMAP Titan — so estas env:
+ *   GMAIL_IMAP_USER / GMAIL_IMAP_PASS
+ *   OUTLOOK_IMAP_USER / OUTLOOK_IMAP_PASS
+ * Opcional: GMAIL_IMAP_HOST, OUTLOOK_IMAP_HOST, MAILTITAN_HOST
+ * MAILTITAN_USER / MAILTITAN_PASS nao sao lidas.
  */
 
 export interface ParsedEmail {
@@ -25,7 +25,6 @@ interface MailboxCreds {
   hosts: string[]
 }
 
-/** Erro de IMAP com status HTTP sugerido para a camada de rota. */
 export class ImapInboxError extends Error {
   status: number
   constructor(message: string, status = 500) {
@@ -47,7 +46,7 @@ function buildHosts(extra?: string): string[] {
 
 const GMAIL_MAILBOX: MailboxCreds = {
   user: process.env.GMAIL_IMAP_USER ?? "abusadordoamin@tskulzinhox.shop",
-  pass: process.env.GMAIL_IMAP_PASS ?? "TOnyEnzO123!?",
+  pass: process.env.GMAIL_IMAP_PASS ?? "",
   hosts: buildHosts(process.env.GMAIL_IMAP_HOST),
 }
 
@@ -57,7 +56,6 @@ const OUTLOOK_MAILBOX: MailboxCreds = {
   hosts: buildHosts(process.env.OUTLOOK_IMAP_HOST),
 }
 
-/** Escolhe a caixa correta a partir do endereco solicitado. */
 function mailboxFor(email: string): MailboxCreds | null {
   const kind = getInboxKind(email)
   if (kind === "gmail") return GMAIL_MAILBOX
@@ -262,7 +260,9 @@ export async function fetchImapInbox(email: string): Promise<ParsedEmail[]> {
 
   const authErr = errors.find((m) => /auth/i.test(m))
   if (authErr) {
-    const which = creds.user.includes("tskulzinhox") ? "GMAIL_IMAP_PASS" : "OUTLOOK_IMAP_PASS"
+    const which = /gmail|tskulzinhox|abusador/i.test(creds.user)
+      ? "GMAIL_IMAP_PASS"
+      : "OUTLOOK_IMAP_PASS"
     throw new ImapInboxError(
       `Falha de login IMAP para ${creds.user}. Verifique a senha (${which}).`,
       500,

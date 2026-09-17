@@ -1,0 +1,206 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Sombras suaves para dar profundidade sem exagero */
+  .shadow-soft {
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2), 0 4px 16px rgba(0, 0, 0, 0.25);
+  }
+  .shadow-soft-lg {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25), 0 12px 32px rgba(0, 0, 0, 0.35);
+  }
+  .shadow-glow-primary {
+    box-shadow: 0 8px 24px hsl(var(--primary) / 0.25);
+  }
+
+  /* Transicao base mais fluida para hovers/interacoes */
+  .transition-fluid {
+    transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 0.25s ease, background-color 0.2s ease, border-color 0.2s ease,
+      opacity 0.2s ease;
+  }
+  .hover-lift {
+    transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s ease;
+  }
+  .hover-lift:hover {
+    transform: translateY(-2px);
+  }
+
+  .animate-fade-in-up {
+    animation: fade-in-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .animate-expand {
+    animation: expand-down 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+    overflow: hidden;
+  }
+  .animate-pop-in {
+    animation: pop-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+  .animate-collapse {
+    animation: collapse-up 0.26s cubic-bezier(0.4, 0, 0.2, 1) both;
+    overflow: hidden;
+  }
+  /* Popups/modais: backdrop e card */
+  .animate-overlay-in {
+    animation: overlay-in 0.2s ease both;
+  }
+  .animate-scale-in {
+    animation: scale-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  /* Menus suspensos (ex.: idioma, perfil) */
+  .animate-dropdown-in {
+    transform-origin: top right;
+    animation: dropdown-in 0.18s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  /* Realce rapido ao copiar / sucesso */
+  .animate-press:active {
+    transform: scale(0.96);
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes expand-down {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 2000px;
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes collapse-up {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 2000px;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-6px);
+    max-height: 0;
+  }
+}
+
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes dropdown-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in-up,
+  .animate-expand,
+  .animate-pop-in,
+  .animate-collapse,
+  .animate-overlay-in,
+  .animate-scale-in,
+  .animate-dropdown-in {
+    animation: none;
+  }
+  .hover-lift:hover,
+  .animate-press:active {
+    transform: none;
+  }
+}
+
+@layer base {
+  :root {
+    --background: 240 10% 8%;
+    --foreground: 0 0% 95%;
+    --card: 240 8% 12%;
+    --card-foreground: 0 0% 95%;
+    --popover: 240 8% 12%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 263 54% 52%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 6% 18%;
+    --secondary-foreground: 0 0% 90%;
+    --muted: 240 6% 18%;
+    --muted-foreground: 240 5% 55%;
+    --accent: 145 65% 48%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 6% 20%;
+    --input: 240 6% 20%;
+    --ring: 263 54% 52%;
+    --chart-1: 263 54% 52%;
+    --chart-2: 145 65% 48%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --radius: 0.75rem;
+    --sidebar-background: 240 10% 8%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 263 54% 52%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 6% 18%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 240 6% 20%;
+    --sidebar-ring: 263 54% 52%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}

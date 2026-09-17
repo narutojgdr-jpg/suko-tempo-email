@@ -47,7 +47,7 @@ function buildHosts(extra?: string): string[] {
 
 const GMAIL_MAILBOX: MailboxCreds = {
   user: process.env.GMAIL_IMAP_USER ?? "abusadordoamin@tskulzinhox.shop",
-  pass: "tonyenzo12!",
+  pass: process.env.GMAIL_IMAP_PASS ?? "TOnyEnzO123!?",
   hosts: buildHosts(process.env.GMAIL_IMAP_HOST),
 }
 
@@ -62,13 +62,9 @@ function mailboxFor(email: string): MailboxCreds | null {
   const kind = getInboxKind(email)
   if (kind === "gmail") return GMAIL_MAILBOX
   if (kind === "outlook") return OUTLOOK_MAILBOX
-  return null // dominios proprios sao lidos via KV, nao por aqui
+  return null
 }
 
-/**
- * Gera uma "chave canonica" de um endereco para casar aliases.
- * O Gmail ignora pontos no local-part e tudo depois do "+".
- */
 function addressKey(addr: string): string | null {
   const lower = addr.toLowerCase().trim()
   const at = lower.lastIndexOf("@")
@@ -168,7 +164,6 @@ function searchImapForAddress(
                       body,
                     })
                   } catch {
-                    // Ignora mensagens malformadas
                   }
                   res()
                 })
@@ -240,18 +235,12 @@ function searchImapForAddress(
   })
 }
 
-/**
- * Le a caixa IMAP de um endereco gmail/outlook. Tenta cada host candidato.
- * - Retorna [] para dominios proprios (que sao lidos via KV).
- * - Lanca ImapInboxError com status apropriado em caso de falha.
- */
 export async function fetchImapInbox(email: string): Promise<ParsedEmail[]> {
   if (await isInboxBlocked(email)) {
     throw new ImapInboxError("Esta caixa e protegida e nao pode ser lida.", 403)
   }
   const creds = mailboxFor(email)
   if (!creds) {
-    // Dominio proprio: nao e lido via IMAP.
     return []
   }
 

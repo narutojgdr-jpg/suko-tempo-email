@@ -77,9 +77,10 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
     })
   }
 
-  function copy(text: string) {
+  function copy(text: string, label?: string) {
+    if (!text) return
     navigator.clipboard.writeText(text)
-    setMsg("Copiado")
+    setMsg(label ? `${label} copiado` : "Copiado")
     setTimeout(() => setMsg(""), 1200)
   }
 
@@ -87,7 +88,29 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
     const lines = exportList.map(
       (a) => `${a.email}|${a.password}|${a.gmail || ""}|${a.notes || ""}`,
     )
-    copy(lines.join("\n"))
+    copy(lines.join("\n"), "Lote")
+  }
+
+  function Field({
+    label,
+    value,
+  }: {
+    label: string
+    value: string
+  }) {
+    const empty = !value
+    return (
+      <button
+        type="button"
+        onClick={() => copy(value, label)}
+        disabled={empty}
+        className="flex w-full flex-col rounded-lg border border-border bg-background px-2.5 py-2 text-left disabled:opacity-40"
+        title={empty ? "Vazio" : `Copiar ${label}`}
+      >
+        <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</span>
+        <span className="truncate font-mono text-xs">{empty ? "—" : value}</span>
+      </button>
+    )
   }
 
   return (
@@ -96,7 +119,7 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
         <div>
           <h1 className="text-2xl font-bold">Spotify</h1>
           <p className="text-sm text-muted-foreground">
-            Dominio extraido do email (ex: @india123.tskulzinho.shop → tskulzinho.shop).
+            Clique em cada campo pra copiar. Dominio extraido do email.
           </p>
         </div>
         <button
@@ -216,38 +239,36 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
                 <span className="text-sm text-muted-foreground">{list.length} conta(s)</span>
               </button>
               {isOpen && (
-                <ul className="divide-y divide-border border-t border-border">
+                <div className="grid grid-cols-1 gap-3 border-t border-border p-3 sm:grid-cols-2 xl:grid-cols-3">
                   {list.map((a) => (
-                    <li key={a.id} className="flex items-center justify-between gap-2 px-4 py-2 text-sm">
-                      <div className="min-w-0">
-                        <p className="truncate font-medium">{a.email}</p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {a.password || "sem senha"}
-                          {a.gmail ? ` · ${a.gmail}` : ""}
-                          {a.notes ? ` · ${a.notes}` : ""}
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 gap-1">
+                    <div key={a.id} className="flex flex-col gap-2 rounded-xl border border-border bg-muted/20 p-3">
+                      <Field label="Email" value={a.email} />
+                      <Field label="Senha" value={a.password} />
+                      <Field label="Gmail" value={a.gmail} />
+                      <Field label="Nome" value={a.notes} />
+                      <div className="mt-1 flex gap-2">
                         <button
                           onClick={() =>
-                            copy(`${a.email}|${a.password}|${a.gmail || ""}|${a.notes || ""}`)
+                            copy(
+                              `${a.email}|${a.password}|${a.gmail || ""}|${a.notes || ""}`,
+                              "Linha",
+                            )
                           }
-                          className="rounded p-1.5 text-muted-foreground hover:bg-muted"
-                          title="Copiar email|senha|gmail|nome"
+                          className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-border px-2 py-1.5 text-xs"
                         >
-                          <Copy className="h-4 w-4" />
+                          <Copy className="h-3.5 w-3.5" /> linha inteira
                         </button>
                         <button
                           onClick={() => remove(a.id)}
-                          className="rounded p-1.5 text-destructive hover:bg-muted"
+                          className="rounded-lg border border-destructive/40 px-2 py-1.5 text-destructive"
                           title="Apagar"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
-                    </li>
+                    </div>
                   ))}
-                </ul>
+                </div>
               )}
             </div>
           )

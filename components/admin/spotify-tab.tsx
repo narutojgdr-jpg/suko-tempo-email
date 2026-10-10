@@ -1,13 +1,15 @@
 "use client"
 
 import { useMemo, useState, useTransition } from "react"
-import { Music, Plus, Trash2, Copy, ChevronDown, ChevronRight, Download, ShieldCheck, RefreshCw } from "lucide-react"
+import { Music, Plus, Trash2, Copy, ChevronDown, ChevronRight, Download, ShieldCheck, RefreshCw, Save } from "lucide-react"
 import {
   addSpotifyAccount,
   deleteSpotifyAccount,
   importSpotifyAccounts,
   getSpotifyAuthorizeUrl,
   checkSpotifyAccount,
+  updateSpotifyAccount,
+  listSpotifyAccounts,
   type SpotifyAccount,
 } from "@/app/actions/spotify"
 
@@ -22,6 +24,7 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
   const [open, setOpen] = useState<Record<string, boolean>>({})
   const [pending, start] = useTransition()
   const [msg, setMsg] = useState("")
+  const [edits, setEdits] = useState<Record<number, { email: string; password: string; gmail: string; notes: string }>>({})
 
   const grouped = useMemo(() => {
     const map = new Map<string, SpotifyAccount[]>()
@@ -41,6 +44,28 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
     ? accounts.filter((a) => a.domain === filter)
     : accounts
 
+  function getEdit(a: SpotifyAccount) {
+    return edits[a.id] || { email: a.email, password: a.password, gmail: a.gmail, notes: a.notes }
+  }
+
+  function setEdit(id: number, field: "email" | "password" | "gmail" | "notes", value: string, base: SpotifyAccount) {
+    setEdits((prev) => {
+      const cur = prev[id] || { email: base.email, password: base.password, gmail: base.gmail, notes: base.notes }
+      return { ...prev, [id]: { ...cur, [field]: value } }
+    })
+  }
+
+  function refresh() {
+    setMsg("")
+    start(async () => {
+      const list = await listSpotifyAccounts()
+      setAccounts(list)
+      setEdits({})
+      setMsg("Atualizado")
+      setTimeout(() => setMsg(""), 1200)
+    })
+  }
+
   function add() {
     setMsg("")
     start(async () => {
@@ -53,7 +78,8 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
       setPassword("")
       setGmail("")
       setNotes("")
-      window.location.reload()
+      const list = await listSpotifyAccounts()
+      setAccounts(list)
     })
   }
 
@@ -67,7 +93,8 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
       }
       setBulk("")
       setMsg(`Importadas ${res.added}. Puladas ${res.skipped}.`)
-      window.location.reload()
+      const list = await listSpotifyAccounts()
+      setAccounts(list)
     })
   }
 
@@ -77,6 +104,43 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
       await deleteSpotifyAccount(id)
       setAccounts((prev) => prev.filter((a) => a.id !== id))
     })
+  }
+
+  function save(id: number) {
+    const a = accounts.find((x) => x.id === id)
+    if (!a) return
+    const e = getEdit(a)
+    setMsg("")
+    start(async () => {
+      const res = await updateSpotifyAccount(id, e)
+      if (!res.ok) {
+        setMsg(res.error ?? "Erro")
+        return
+      }
+      setAccounts((prev) =>
+        prev.map((x) =>
+          x.id === id
+            ? { ...x, email: e.email, password: e.password, gmail: e.gmail, notes: e.notes, domain: domainOf(e.email) }
+            : x,
+        ),
+      )
+      setEdits((prev) => {
+        const n = { ...prev }
+        delete n[id]
+        return n
+      })
+      setMsg("Salvo")
+      setTimeout(() => setMsg(""), 1200)
+    })
+  }
+
+  function domainOf(em: string) {
+    const at = em.lastIndexOf("@")
+    if (at < 1) return ""
+    const host = em.slice(at + 1).toLowerCase()
+    const parts = host.split(".").filter(Boolean)
+    if (parts.length <= 2) return host
+    return parts.slice(-2).join(".")
   }
 
   function copy(text: string, label?: string) {
@@ -113,8 +177,15 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
         setMsg(res.error ?? "Erro")
         return
       }
+      setAccounts((prev) =>
+        prev.map((x) =>
+          x.id === id
+            ? { ...x, status: res.status || x.status, notes: x.notes || res.displayName || x.notes }
+            : x,
+        ),
+      )
       setMsg(`Status: ${res.status}`)
-      window.location.reload()
+      setTimeout(() => setMsg(""), 1500)
     })
   }
 
@@ -126,43 +197,30 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
     return "text-muted-foreground"
   }
 
-  function Field({
-    label,
-    value,
-  }: {
-    label: string
-    value: string
-  }) {
-    const empty = !value
-    return (
-      <button
-        type="button"
-        onClick={() => copy(value, label)}
-        disabled={empty}
-        className="flex w-full flex-col rounded-lg border border-border bg-background px-2.5 py-2 text-left disabled:opacity-40"
-        title={empty ? "Vazio" : `Copiar ${label}`}
-      >
-        <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</span>
-        <span className="truncate font-mono text-xs">{empty ? "—" : value}</span>
-      </button>
-    )
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Spotify</h1>
           <p className="text-sm text-muted-foreground">
-            Clique no campo pra copiar. Autoriza uma vez, depois Checar.
+            Edita o card e salva. Checar nao recarrega a pagina.
           </p>
         </div>
-        <button
-          onClick={exportAll}
-          className="flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-xs font-medium"
-        >
-          <Download className="h-3.5 w-3.5" /> email|senha|gmail|nome
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={refresh}
+            disabled={pending}
+            className="flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-xs font-medium"
+          >
+            <RefreshCw className="h-3.5 w-3.5" /> Atualizar
+          </button>
+          <button
+            onClick={exportAll}
+            className="flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-xs font-medium"
+          >
+            <Download className="h-3.5 w-3.5" /> email|senha|gmail|nome
+          </button>
+        </div>
       </div>
 
       <div className="rounded-xl border border-border bg-card p-4">
@@ -275,54 +333,83 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
               </button>
               {isOpen && (
                 <div className="grid grid-cols-1 gap-3 border-t border-border p-3 sm:grid-cols-2 xl:grid-cols-3">
-                  {list.map((a) => (
-                    <div key={a.id} className="flex flex-col gap-2 rounded-xl border border-border bg-muted/20 p-3">
-                      <div className="flex items-center justify-between">
-                        <span className={`text-xs font-semibold uppercase ${statusColor(a.status)}`}>
-                          {a.status || "sem status"}
-                        </span>
-                        {a.hasToken && <span className="text-[10px] text-muted-foreground">token ok</span>}
+                  {list.map((a) => {
+                    const e = getEdit(a)
+                    return (
+                      <div key={a.id} className="flex flex-col gap-2 rounded-xl border border-border bg-muted/20 p-3">
+                        <div className="flex items-center justify-between">
+                          <span className={`text-xs font-semibold uppercase ${statusColor(a.status)}`}>
+                            {a.status || "sem status"}
+                          </span>
+                          {a.hasToken && <span className="text-[10px] text-muted-foreground">token ok</span>}
+                        </div>
+                        <label className="text-[10px] uppercase text-muted-foreground">Email
+                          <input
+                            value={e.email}
+                            onChange={(ev) => setEdit(a.id, "email", ev.target.value, a)}
+                            className="mt-0.5 w-full rounded border border-border bg-background px-2 py-1 font-mono text-xs"
+                          />
+                        </label>
+                        <label className="text-[10px] uppercase text-muted-foreground">Senha
+                          <input
+                            value={e.password}
+                            onChange={(ev) => setEdit(a.id, "password", ev.target.value, a)}
+                            className="mt-0.5 w-full rounded border border-border bg-background px-2 py-1 font-mono text-xs"
+                          />
+                        </label>
+                        <label className="text-[10px] uppercase text-muted-foreground">Gmail
+                          <input
+                            value={e.gmail}
+                            onChange={(ev) => setEdit(a.id, "gmail", ev.target.value, a)}
+                            className="mt-0.5 w-full rounded border border-border bg-background px-2 py-1 font-mono text-xs"
+                          />
+                        </label>
+                        <label className="text-[10px] uppercase text-muted-foreground">Nome
+                          <input
+                            value={e.notes}
+                            onChange={(ev) => setEdit(a.id, "notes", ev.target.value, a)}
+                            className="mt-0.5 w-full rounded border border-border bg-background px-2 py-1 font-mono text-xs"
+                          />
+                        </label>
+                        <div className="mt-1 flex flex-wrap gap-2">
+                          <button
+                            onClick={() => save(a.id)}
+                            disabled={pending}
+                            className="flex items-center gap-1 rounded-lg border border-border px-2 py-1.5 text-xs"
+                          >
+                            <Save className="h-3.5 w-3.5" /> Salvar
+                          </button>
+                          <button
+                            onClick={() => authorize(a.id)}
+                            disabled={pending}
+                            className="flex items-center gap-1 rounded-lg border border-border px-2 py-1.5 text-xs"
+                          >
+                            <ShieldCheck className="h-3.5 w-3.5" /> {a.hasToken ? "Reautorizar" : "Autorizar"}
+                          </button>
+                          <button
+                            onClick={() => check(a.id)}
+                            disabled={pending || !a.hasToken}
+                            className="flex items-center gap-1 rounded-lg border border-border px-2 py-1.5 text-xs disabled:opacity-40"
+                          >
+                            <RefreshCw className="h-3.5 w-3.5" /> Checar
+                          </button>
+                          <button
+                            onClick={() => copy(`${e.email}|${e.password}|${e.gmail || ""}|${e.notes || ""}`, "Linha")}
+                            className="flex items-center gap-1 rounded-lg border border-border px-2 py-1.5 text-xs"
+                          >
+                            <Copy className="h-3.5 w-3.5" /> linha
+                          </button>
+                          <button
+                            onClick={() => remove(a.id)}
+                            className="rounded-lg border border-destructive/40 px-2 py-1.5 text-destructive"
+                            title="Apagar"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       </div>
-                      <Field label="Email" value={a.email} />
-                      <Field label="Senha" value={a.password} />
-                      <Field label="Gmail" value={a.gmail} />
-                      <Field label="Nome" value={a.notes} />
-                      <div className="mt-1 flex flex-wrap gap-2">
-                        <button
-                          onClick={() => authorize(a.id)}
-                          disabled={pending}
-                          className="flex items-center gap-1 rounded-lg border border-border px-2 py-1.5 text-xs"
-                        >
-                          <ShieldCheck className="h-3.5 w-3.5" /> {a.hasToken ? "Reautorizar" : "Autorizar"}
-                        </button>
-                        <button
-                          onClick={() => check(a.id)}
-                          disabled={pending || !a.hasToken}
-                          className="flex items-center gap-1 rounded-lg border border-border px-2 py-1.5 text-xs disabled:opacity-40"
-                        >
-                          <RefreshCw className="h-3.5 w-3.5" /> Checar
-                        </button>
-                        <button
-                          onClick={() =>
-                            copy(
-                              `${a.email}|${a.password}|${a.gmail || ""}|${a.notes || ""}`,
-                              "Linha",
-                            )
-                          }
-                          className="flex items-center gap-1 rounded-lg border border-border px-2 py-1.5 text-xs"
-                        >
-                          <Copy className="h-3.5 w-3.5" /> linha
-                        </button>
-                        <button
-                          onClick={() => remove(a.id)}
-                          className="rounded-lg border border-destructive/40 px-2 py-1.5 text-destructive"
-                          title="Apagar"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </div>

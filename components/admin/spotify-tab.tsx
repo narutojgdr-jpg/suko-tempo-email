@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState, useTransition } from "react"
-import { Music, Plus, Trash2, Copy, ChevronDown, ChevronRight, Download, ShieldCheck, RefreshCw, Save } from "lucide-react"
+import { Music, Plus, Trash2, Copy, ChevronDown, ChevronRight, Download, ShieldCheck, RefreshCw, Save, Play } from "lucide-react"
 import {
   addSpotifyAccount,
   deleteSpotifyAccount,
@@ -191,6 +191,26 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
     })
   }
 
+  async function verificar(id: number, cookie: string) {
+    if (!cookie) {
+      setMsg("Sem cookie")
+      return
+    }
+    setMsg("")
+    const res = await fetch("/api/spotify/task", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accountId: id, cookie }),
+    })
+    const data = await res.json()
+    if (data.ok) {
+      setMsg("Tarefa criada. Roda o script no PC.")
+    } else {
+      setMsg(data.error || "Erro")
+    }
+    setTimeout(() => setMsg(""), 2000)
+  }
+
   function statusColor(status: string) {
     if (status === "premium") return "text-emerald-400"
     if (status === "free") return "text-amber-400"
@@ -205,7 +225,7 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
         <div>
           <h1 className="text-2xl font-bold">Spotify</h1>
           <p className="text-sm text-muted-foreground">
-            Edita o card e salva. Inclui cookie sp_dc.
+            Verificar manda tarefa pro script do PC.
           </p>
         </div>
         <div className="flex gap-2">
@@ -397,6 +417,13 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
                             className="flex items-center gap-1 rounded-lg border border-border px-2 py-1.5 text-xs"
                           >
                             <Save className="h-3.5 w-3.5" /> Salvar
+                          </button>
+                          <button
+                            onClick={() => verificar(a.id, e.cookie)}
+                            disabled={!e.cookie}
+                            className="flex items-center gap-1 rounded-lg border border-emerald-500/40 px-2 py-1.5 text-xs text-emerald-400 disabled:opacity-40"
+                          >
+                            <Play className="h-3.5 w-3.5" /> Verificar
                           </button>
                           <button
                             onClick={() => authorize(a.id)}

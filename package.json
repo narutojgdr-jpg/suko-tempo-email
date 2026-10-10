@@ -54,6 +54,7 @@
     "date-fns": "4.1.0",
     "drizzle-orm": "^0.45.2",
     "embla-carousel-react": "8.5.1",
+    "googleapis": "^144.0.0",
     "imap": "^0.8.19",
     "input-otp": "1.4.1",
     "lucide-react": "^0.544.0",

@@ -12,9 +12,11 @@ export type SpotifyAccount = {
   notes: string
   domain: string
   createdAt: string
+  status: string
+  hasToken: boolean
+  lastChecked: string | null
 }
 
-/** Extrai o dominio registravel. Ex: user@india123.tskulzinho.shop -> tskulzinho.shop */
 function extractDomain(email: string): string {
   const at = email.lastIndexOf("@")
   if (at < 1) return ""
@@ -35,13 +37,17 @@ async function ensureTable() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     )
   `)
-  await query(
-    `ALTER TABLE public.spotify_accounts ADD COLUMN IF NOT EXISTS gmail TEXT NOT NULL DEFAULT ''`,
-  )
-  await query(
-    `CREATE INDEX IF NOT EXISTS idx_spotify_accounts_domain ON public.spotify_accounts (domain)`,
-  )
+  await query(`ALTER TABLE public.spotify_accounts ADD COLUMN IF NOT EXISTS gmail TEXT NOT NULL DEFAULT ''`)
+  await query(`ALTER TABLE public.spotify_accounts ADD COLUMN IF NOT EXISTS refresh_token TEXT NOT NULL DEFAULT ''`)
+  await query(`ALTER TABLE public.spotify_accounts ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT ''`)
+  await query(`ALTER TABLE public.spotify_accounts ADD COLUMN IF NOT EXISTS last_checked TIMESTAMPTZ`)
+  await query(`CREATE INDEX IF NOT EXISTS idx_spotify_accounts_domain ON public.spotify_accounts (domain)`)
 }
+
+const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID || ""
+const CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET || ""
+const REDIRECT = "https://tempmailsuko.shop/api/spotify/callback"
+const SCOPE = "user-read-email user-read-private"
 
 export async function listSpotifyAccounts(): Promise<SpotifyAccount[]> {
   await requireAdmin()
@@ -54,8 +60,11 @@ export async function listSpotifyAccounts(): Promise<SpotifyAccount[]> {
     notes: string
     domain: string
     created_at: string
+    status: string
+    refresh_token: string
+    last_checked: string | null
   }>(
-    `SELECT id, email, password, gmail, notes, domain, created_at
+    `SELECT id, email, password, gmail, notes, domain, created_at, status, refresh_token, last_checked
      FROM public.spotify_accounts
      ORDER BY domain ASC, created_at DESC`,
   )
@@ -67,6 +76,9 @@ export async function listSpotifyAccounts(): Promise<SpotifyAccount[]> {
     notes: r.notes,
     domain: r.domain || extractDomain(r.email),
     createdAt: r.created_at,
+    status: r.status || "",
+    hasToken: !!r.refresh_token,
+    lastChecked: r.last_checked,
   }))
 }
 
@@ -86,22 +98,12 @@ export async function addSpotifyAccount(input: {
   await query(
     `INSERT INTO public.spotify_accounts (email, password, gmail, notes, domain)
      VALUES ($1, $2, $3, $4, $5)`,
-    [
-      email,
-      input.password || "",
-      (input.gmail ?? "").trim(),
-      (input.notes ?? "").trim(),
-      domain,
-    ],
+    [email, input.password || "", (input.gmail ?? "").trim(), (input.notes ?? "").trim(), domain],
   )
   revalidatePath("/admin")
   return { ok: true }
 }
 
-/**
- * Linha: email|senha|gmail|nome
- * Campo vazio ou ausente e ignorado. So precisa do email original.
- */
 export async function importSpotifyAccounts(raw: string): Promise<{
   ok: boolean
   added: number
@@ -113,9 +115,7 @@ export async function importSpotifyAccounts(raw: string): Promise<{
   const lines = raw.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
   if (lines.length === 0) return { ok: false, added: 0, skipped: 0, error: "Nada pra importar" }
 
-  const existing = await query<{ email: string }>(
-    `SELECT lower(email) AS email FROM public.spotify_accounts`,
-  )
+  const existing = await query<{ email: string }>(`SELECT lower(email) AS email FROM public.spotify_accounts`)
   const have = new Set(existing.map((r) => r.email))
 
   let added = 0
@@ -149,4 +149,98 @@ export async function deleteSpotifyAccount(id: number): Promise<{ ok: boolean }>
   await query(`DELETE FROM public.spotify_accounts WHERE id = $1`, [id])
   revalidatePath("/admin")
   return { ok: true }
+}
+
+/** URL pra autorizar uma conta. state = id da conta. */
+export async function getSpotifyAuthorizeUrl(accountId: number): Promise<string> {
+  await requireAdmin()
+  if (!CLIENT_ID) return ""
+  const params = new URLSearchParams({
+    response_type: "code",
+    client_id: CLIENT_ID,
+    scope: SCOPE,
+    redirect_uri: REDIRECT,
+    state: String(accountId),
+    show_dialog: "true",
+  })
+  return `https://accounts.spotify.com/authorize?${params.toString()}`
+}
+
+/** Salva o refresh token depois do callback. */
+export async function saveSpotifyToken(accountId: number, refreshToken: string) {
+  await ensureTable()
+  await query(
+    `UPDATE public.spotify_accounts SET refresh_token = $2, status = 'autorizada', last_checked = now() WHERE id = $1`,
+    [accountId, refreshToken],
+  )
+  revalidatePath("/admin")
+}
+
+/** Checa uma conta usando o refresh token. */
+export async function checkSpotifyAccount(accountId: number): Promise<{
+  ok: boolean
+  status?: string
+  error?: string
+}> {
+  await requireAdmin()
+  await ensureTable()
+  if (!CLIENT_ID || !CLIENT_SECRET) return { ok: false, error: "App Spotify nao configurado" }
+
+  const rows = await query<{ refresh_token: string }>(
+    `SELECT refresh_token FROM public.spotify_accounts WHERE id = $1`,
+    [accountId],
+  )
+  const token = rows[0]?.refresh_token
+  if (!token) return { ok: false, error: "Conta nao autorizada" }
+
+  const tokenRes = await fetch("https://accounts.spotify.com/api/token", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Authorization: `Basic ${Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString("base64")}`,
+    },
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      refresh_token: token,
+    }),
+  })
+
+  if (!tokenRes.ok) {
+    await query(`UPDATE public.spotify_accounts SET status = 'morta', last_checked = now() WHERE id = $1`, [accountId])
+    revalidatePath("/admin")
+    return { ok: true, status: "morta" }
+  }
+
+  const tokenData = (await tokenRes.json()) as { access_token?: string; refresh_token?: string }
+  const access = tokenData.access_token
+  if (!access) {
+    await query(`UPDATE public.spotify_accounts SET status = 'morta', last_checked = now() WHERE id = $1`, [accountId])
+    revalidatePath("/admin")
+    return { ok: true, status: "morta" }
+  }
+
+  if (tokenData.refresh_token) {
+    await query(`UPDATE public.spotify_accounts SET refresh_token = $2 WHERE id = $1`, [accountId, tokenData.refresh_token])
+  }
+
+  const meRes = await fetch("https://api.spotify.com/v1/me", {
+    headers: { Authorization: `Bearer ${access}` },
+  })
+
+  if (!meRes.ok) {
+    await query(`UPDATE public.spotify_accounts SET status = 'morta', last_checked = now() WHERE id = $1`, [accountId])
+    revalidatePath("/admin")
+    return { ok: true, status: "morta" }
+  }
+
+  const me = (await meRes.json()) as { product?: string }
+  const product = me.product || "free"
+  const status = product === "premium" ? "premium" : "free"
+
+  await query(
+    `UPDATE public.spotify_accounts SET status = $2, last_checked = now() WHERE id = $1`,
+    [accountId, status],
+  )
+  revalidatePath("/admin")
+  return { ok: true, status }
 }

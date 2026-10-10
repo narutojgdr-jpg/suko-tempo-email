@@ -1,13 +1,10 @@
 "use client"
 
 import { useMemo, useState, useTransition } from "react"
-import { Music, Plus, Trash2, Copy, ChevronDown, ChevronRight, Download, ShieldCheck, RefreshCw, Save, Play } from "lucide-react"
+import { Music, Trash2, Copy, ChevronDown, ChevronRight, Download, Play, RefreshCw, Save } from "lucide-react"
 import {
-  addSpotifyAccount,
   deleteSpotifyAccount,
   importSpotifyAccounts,
-  getSpotifyAuthorizeUrl,
-  checkSpotifyAccount,
   updateSpotifyAccount,
   listSpotifyAccounts,
   type SpotifyAccount,
@@ -15,11 +12,6 @@ import {
 
 export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }) {
   const [accounts, setAccounts] = useState(initial)
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [gmail, setGmail] = useState("")
-  const [notes, setNotes] = useState("")
-  const [cookie, setCookie] = useState("")
   const [bulk, setBulk] = useState("")
   const [filter, setFilter] = useState<string | null>(null)
   const [open, setOpen] = useState<Record<string, boolean>>({})
@@ -37,13 +29,8 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
     return Array.from(map.entries()).sort((a, b) => b[1].length - a[1].length)
   }, [accounts])
 
-  const visible = filter
-    ? grouped.filter(([d]) => d === filter)
-    : grouped
-
-  const exportList = filter
-    ? accounts.filter((a) => a.domain === filter)
-    : accounts
+  const visible = filter ? grouped.filter(([d]) => d === filter) : grouped
+  const exportList = filter ? accounts.filter((a) => a.domain === filter) : accounts
 
   function getEdit(a: SpotifyAccount) {
     return edits[a.id] || { email: a.email, password: a.password, gmail: a.gmail, notes: a.notes, cookie: a.cookie || "" }
@@ -64,24 +51,6 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
       setEdits({})
       setMsg("Atualizado")
       setTimeout(() => setMsg(""), 1200)
-    })
-  }
-
-  function add() {
-    setMsg("")
-    start(async () => {
-      const res = await addSpotifyAccount({ email, password, gmail, notes, cookie })
-      if (!res.ok) {
-        setMsg(res.error ?? "Erro")
-        return
-      }
-      setEmail("")
-      setPassword("")
-      setGmail("")
-      setNotes("")
-      setCookie("")
-      const list = await listSpotifyAccounts()
-      setAccounts(list)
     })
   }
 
@@ -159,38 +128,6 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
     copy(lines.join("\n"), "Lote")
   }
 
-  function authorize(id: number) {
-    setMsg("")
-    start(async () => {
-      const url = await getSpotifyAuthorizeUrl(id)
-      if (!url) {
-        setMsg("App Spotify nao configurado")
-        return
-      }
-      window.location.href = url
-    })
-  }
-
-  function check(id: number) {
-    setMsg("")
-    start(async () => {
-      const res = await checkSpotifyAccount(id)
-      if (!res.ok) {
-        setMsg(res.error ?? "Erro")
-        return
-      }
-      setAccounts((prev) =>
-        prev.map((x) =>
-          x.id === id
-            ? { ...x, status: res.status || x.status, notes: x.notes || res.displayName || x.notes }
-            : x,
-        ),
-      )
-      setMsg(`Status: ${res.status}`)
-      setTimeout(() => setMsg(""), 1500)
-    })
-  }
-
   async function verificar(id: number, cookie: string) {
     if (!cookie) {
       setMsg("Sem cookie")
@@ -203,11 +140,7 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
       body: JSON.stringify({ accountId: id, cookie }),
     })
     const data = await res.json()
-    if (data.ok) {
-      setMsg("Tarefa criada")
-    } else {
-      setMsg(data.error || "Erro")
-    }
+    setMsg(data.ok ? "Tarefa criada" : data.error || "Erro")
     setTimeout(() => setMsg(""), 1500)
   }
 
@@ -229,11 +162,7 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
       body: JSON.stringify(items),
     })
     const data = await res.json()
-    if (data.ok) {
-      setMsg(`${data.created} tarefas criadas`)
-    } else {
-      setMsg(data.error || "Erro")
-    }
+    setMsg(data.ok ? `${data.created} tarefas criadas` : data.error || "Erro")
     setTimeout(() => setMsg(""), 2000)
   }
 
@@ -244,111 +173,99 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
   }
 
   function statusColor(status: string) {
-    if (status === "premium") return "text-emerald-400"
-    if (status === "free") return "text-amber-400"
-    if (status === "morta") return "text-destructive"
-    if (status === "autorizada") return "text-sky-400"
-    return "text-muted-foreground"
+    if (status === "premium") return "bg-emerald-500/20 text-emerald-300"
+    if (status === "free") return "bg-amber-500/20 text-amber-300"
+    if (status === "morta") return "bg-red-500/20 text-red-300"
+    return "bg-muted text-muted-foreground"
   }
 
   return (
-    <div className="space-y-3 max-w-full">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold">Spotify</h1>
-          <p className="text-xs text-muted-foreground">Verificar manda tarefa. Verificar todos cria varias.</p>
+          <h1 className="text-2xl font-bold">Spotify</h1>
+          <p className="text-sm text-muted-foreground">Contas e verificacao</p>
         </div>
-        <div className="flex gap-1.5">
-          <button onClick={refresh} disabled={pending} className="flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px]">
-            <RefreshCw className="h-3 w-3" /> Atualizar
+        <div className="flex gap-2">
+          <button onClick={refresh} disabled={pending} className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm">
+            <RefreshCw className="h-4 w-4" /> Atualizar
           </button>
-          <button onClick={exportAll} className="flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px]">
-            <Download className="h-3 w-3" /> Exportar
+          <button onClick={exportAll} className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm">
+            <Download className="h-4 w-4" /> Exportar
           </button>
         </div>
       </div>
 
-      <div className="rounded-lg border border-border bg-card p-2.5">
-        <h2 className="mb-1 text-xs font-semibold">Colar em lote</h2>
+      <div className="rounded-xl border border-border bg-card p-4">
+        <h2 className="mb-2 text-sm font-semibold">Colar em lote</h2>
         <textarea
           value={bulk}
           onChange={(e) => setBulk(e.target.value)}
-          rows={6}
+          rows={5}
           placeholder="email|senha|gmail|Nome|cookie"
-          className="w-full rounded border border-border bg-background p-2 font-mono text-xs"
+          className="w-full rounded-lg border border-border bg-background p-3 font-mono text-sm"
         />
-        <div className="mt-1.5 flex items-center gap-2">
-          <button onClick={importBulk} disabled={pending || !bulk.trim()} className="rounded bg-primary px-3 py-1 text-xs font-medium text-primary-foreground disabled:opacity-50">
-            {pending ? "..." : "Importar"}
+        <div className="mt-2 flex items-center gap-3">
+          <button onClick={importBulk} disabled={pending || !bulk.trim()} className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50">
+            {pending ? "Importando..." : "Importar"}
           </button>
-          {msg && <span className="text-xs text-muted-foreground">{msg}</span>}
+          {msg && <span className="text-sm text-muted-foreground">{msg}</span>}
         </div>
       </div>
 
-      <div className="rounded-lg border border-border bg-card p-2.5">
-        <h2 className="mb-1.5 flex items-center gap-1 text-xs font-semibold"><Plus className="h-3 w-3" /> Adicionar</h2>
-        <div className="grid gap-1.5 grid-cols-2 lg:grid-cols-5">
-          <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email" className="rounded border border-border bg-background px-2 py-1 text-xs" />
-          <input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="senha" className="rounded border border-border bg-background px-2 py-1 text-xs" />
-          <input value={gmail} onChange={(e) => setGmail(e.target.value)} placeholder="gmail" className="rounded border border-border bg-background px-2 py-1 text-xs" />
-          <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="nome" className="rounded border border-border bg-background px-2 py-1 text-xs" />
-          <input value={cookie} onChange={(e) => setCookie(e.target.value)} placeholder="sp_dc" className="rounded border border-border bg-background px-2 py-1 text-xs col-span-2 lg:col-span-1" />
-        </div>
-        <button onClick={add} disabled={pending || !email} className="mt-1.5 rounded bg-primary px-3 py-1 text-xs font-medium text-primary-foreground disabled:opacity-50">
-          {pending ? "..." : "Salvar"}
-        </button>
-      </div>
-
-      <div className="flex flex-wrap gap-1.5">
-        <button onClick={() => setFilter(null)} className={`rounded border px-2 py-1.5 text-xs ${filter === null ? "border-primary bg-primary/10" : "border-border bg-card"}`}>
-          Todos <span className="font-bold">{accounts.length}</span>
+      <div className="flex flex-wrap gap-2">
+        <button onClick={() => setFilter(null)} className={`rounded-lg border px-3 py-2 text-sm ${filter === null ? "border-primary bg-primary/10" : "border-border bg-card"}`}>
+          Todos <span className="ml-1 font-bold">{accounts.length}</span>
         </button>
         {grouped.map(([domain, list]) => (
-          <button key={domain} onClick={() => setFilter(domain)} className={`rounded border px-2 py-1.5 text-xs ${filter === domain ? "border-primary bg-primary/10" : "border-border bg-card"}`}>
-            <span className="truncate max-w-[120px] inline-block align-bottom">{domain}</span> <span className="font-bold">{list.length}</span>
+          <button key={domain} onClick={() => setFilter(domain)} className={`rounded-lg border px-3 py-2 text-sm ${filter === domain ? "border-primary bg-primary/10" : "border-border bg-card"}`}>
+            {domain} <span className="ml-1 font-bold">{list.length}</span>
           </button>
         ))}
       </div>
 
-      <div className="space-y-2">
-        {visible.length === 0 && <p className="text-xs text-muted-foreground">Nenhuma conta.</p>}
+      <div className="space-y-3">
+        {visible.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma conta.</p>}
         {visible.map(([domain, list]) => {
           const isOpen = open[domain] !== false
           return (
-            <div key={domain} className="rounded-lg border border-border bg-card">
-              <div className="flex items-center justify-between px-2.5 py-1.5">
-                <button onClick={() => setOpen((s) => ({ ...s, [domain]: !isOpen }))} className="flex items-center gap-1.5 text-left text-sm">
-                  {isOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                  <Music className="h-3.5 w-3.5 text-emerald-400" />
-                  <span className="font-medium">{domain}</span>
-                  <span className="text-xs text-muted-foreground">{list.length}</span>
+            <div key={domain} className="rounded-xl border border-border bg-card">
+              <div className="flex items-center justify-between px-4 py-3">
+                <button onClick={() => setOpen((s) => ({ ...s, [domain]: !isOpen }))} className="flex items-center gap-2 text-left">
+                  {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  <Music className="h-4 w-4 text-emerald-400" />
+                  <span className="font-semibold">{domain}</span>
+                  <span className="text-sm text-muted-foreground">{list.length}</span>
                 </button>
-                <button onClick={() => verificarDominio(list)} className="flex items-center gap-1 rounded border border-emerald-500/40 px-1.5 py-0.5 text-[11px] text-emerald-400">
-                  <Play className="h-3 w-3" /> Verificar todos
+                <button onClick={() => verificarDominio(list)} className="flex items-center gap-1.5 rounded-lg border border-emerald-500/40 px-3 py-1.5 text-sm text-emerald-400">
+                  <Play className="h-4 w-4" /> Verificar todos
                 </button>
               </div>
               {isOpen && (
-                <div className="grid grid-cols-1 gap-2 border-t border-border p-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+                <div className="grid grid-cols-1 gap-3 border-t border-border p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {list.map((a) => {
                     const e = getEdit(a)
                     return (
-                      <div key={a.id} className="flex flex-col gap-1 rounded border border-border bg-muted/10 p-2">
+                      <div key={a.id} className="flex flex-col gap-2 rounded-lg border border-border bg-background p-3">
                         <div className="flex items-center justify-between">
-                          <span className={`text-[10px] font-semibold uppercase ${statusColor(a.status)}`}>{a.status || "—"}</span>
-                          <span className="text-[9px] text-muted-foreground">{fmtDate(a.lastChecked)}</span>
+                          <span className={`rounded px-2 py-0.5 text-xs font-semibold uppercase ${statusColor(a.status)}`}>{a.status || "—"}</span>
+                          <span className="text-xs text-muted-foreground">{fmtDate(a.lastChecked)}</span>
                         </div>
-                        <input value={e.email} onChange={(ev) => setEdit(a.id, "email", ev.target.value, a)} className="w-full rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[11px]" placeholder="email" />
-                        <input value={e.password} onChange={(ev) => setEdit(a.id, "password", ev.target.value, a)} className="w-full rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[11px]" placeholder="senha" />
-                        <input value={e.gmail} onChange={(ev) => setEdit(a.id, "gmail", ev.target.value, a)} className="w-full rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[11px]" placeholder="gmail" />
-                        <input value={e.notes} onChange={(ev) => setEdit(a.id, "notes", ev.target.value, a)} className="w-full rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[11px]" placeholder="nome" />
-                        <input value={e.cookie} onChange={(ev) => setEdit(a.id, "cookie", ev.target.value, a)} className="w-full rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[11px]" placeholder="sp_dc" />
-                        <div className="mt-0.5 flex flex-wrap gap-1">
-                          <button onClick={() => save(a.id)} disabled={pending} className="rounded border border-border px-1.5 py-0.5 text-[10px]"><Save className="h-3 w-3 inline" /></button>
-                          <button onClick={() => verificar(a.id, e.cookie)} disabled={!e.cookie} className="rounded border border-emerald-500/40 px-1.5 py-0.5 text-[10px] text-emerald-400 disabled:opacity-40"><Play className="h-3 w-3 inline" /></button>
-                          <button onClick={() => authorize(a.id)} disabled={pending} className="rounded border border-border px-1.5 py-0.5 text-[10px]"><ShieldCheck className="h-3 w-3 inline" /></button>
-                          <button onClick={() => check(a.id)} disabled={pending || !a.hasToken} className="rounded border border-border px-1.5 py-0.5 text-[10px] disabled:opacity-40"><RefreshCw className="h-3 w-3 inline" /></button>
-                          <button onClick={() => copy(`${e.email}|${e.password}|${e.gmail || ""}|${e.notes || ""}|${e.cookie || ""}`)} className="rounded border border-border px-1.5 py-0.5 text-[10px]"><Copy className="h-3 w-3 inline" /></button>
-                          <button onClick={() => remove(a.id)} className="rounded border border-destructive/40 px-1.5 py-0.5 text-destructive text-[10px]"><Trash2 className="h-3 w-3 inline" /></button>
+                        <label className="text-xs text-muted-foreground">Email</label>
+                        <input value={e.email} onChange={(ev) => setEdit(a.id, "email", ev.target.value, a)} className="w-full rounded border border-border bg-card px-2 py-1.5 font-mono text-sm" />
+                        <label className="text-xs text-muted-foreground">Senha</label>
+                        <input value={e.password} onChange={(ev) => setEdit(a.id, "password", ev.target.value, a)} className="w-full rounded border border-border bg-card px-2 py-1.5 font-mono text-sm" />
+                        <label className="text-xs text-muted-foreground">Gmail</label>
+                        <input value={e.gmail} onChange={(ev) => setEdit(a.id, "gmail", ev.target.value, a)} className="w-full rounded border border-border bg-card px-2 py-1.5 font-mono text-sm" />
+                        <label className="text-xs text-muted-foreground">Nome</label>
+                        <input value={e.notes} onChange={(ev) => setEdit(a.id, "notes", ev.target.value, a)} className="w-full rounded border border-border bg-card px-2 py-1.5 font-mono text-sm" />
+                        <label className="text-xs text-muted-foreground">Cookie</label>
+                        <input value={e.cookie} onChange={(ev) => setEdit(a.id, "cookie", ev.target.value, a)} className="w-full rounded border border-border bg-card px-2 py-1.5 font-mono text-sm" />
+                        <div className="mt-1 flex flex-wrap gap-1.5">
+                          <button onClick={() => save(a.id)} disabled={pending} className="flex items-center gap-1 rounded border border-border px-2 py-1 text-xs"><Save className="h-3.5 w-3.5" /> Salvar</button>
+                          <button onClick={() => verificar(a.id, e.cookie)} disabled={!e.cookie} className="flex items-center gap-1 rounded border border-emerald-500/40 px-2 py-1 text-xs text-emerald-400 disabled:opacity-40"><Play className="h-3.5 w-3.5" /> Verificar</button>
+                          <button onClick={() => copy(`${e.email}|${e.password}|${e.gmail || ""}|${e.notes || ""}|${e.cookie || ""}`)} className="flex items-center gap-1 rounded border border-border px-2 py-1 text-xs"><Copy className="h-3.5 w-3.5" /> Copiar</button>
+                          <button onClick={() => remove(a.id)} className="flex items-center gap-1 rounded border border-destructive/40 px-2 py-1 text-xs text-destructive"><Trash2 className="h-3.5 w-3.5" /> Apagar</button>
                         </div>
                       </div>
                     )

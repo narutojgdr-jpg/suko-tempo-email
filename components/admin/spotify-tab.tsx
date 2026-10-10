@@ -1,11 +1,13 @@
 "use client"
 
 import { useMemo, useState, useTransition } from "react"
-import { Music, Plus, Trash2, Copy, ChevronDown, ChevronRight, Download } from "lucide-react"
+import { Music, Plus, Trash2, Copy, ChevronDown, ChevronRight, Download, ShieldCheck, RefreshCw } from "lucide-react"
 import {
   addSpotifyAccount,
   deleteSpotifyAccount,
   importSpotifyAccounts,
+  getSpotifyAuthorizeUrl,
+  checkSpotifyAccount,
   type SpotifyAccount,
 } from "@/app/actions/spotify"
 
@@ -91,6 +93,39 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
     copy(lines.join("\n"), "Lote")
   }
 
+  function authorize(id: number) {
+    setMsg("")
+    start(async () => {
+      const url = await getSpotifyAuthorizeUrl(id)
+      if (!url) {
+        setMsg("App Spotify nao configurado")
+        return
+      }
+      window.location.href = url
+    })
+  }
+
+  function check(id: number) {
+    setMsg("")
+    start(async () => {
+      const res = await checkSpotifyAccount(id)
+      if (!res.ok) {
+        setMsg(res.error ?? "Erro")
+        return
+      }
+      setMsg(`Status: ${res.status}`)
+      window.location.reload()
+    })
+  }
+
+  function statusColor(status: string) {
+    if (status === "premium") return "text-emerald-400"
+    if (status === "free") return "text-amber-400"
+    if (status === "morta") return "text-destructive"
+    if (status === "autorizada") return "text-sky-400"
+    return "text-muted-foreground"
+  }
+
   function Field({
     label,
     value,
@@ -119,7 +154,7 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
         <div>
           <h1 className="text-2xl font-bold">Spotify</h1>
           <p className="text-sm text-muted-foreground">
-            Clique em cada campo pra copiar. Dominio extraido do email.
+            Clique no campo pra copiar. Autoriza uma vez, depois Checar.
           </p>
         </div>
         <button
@@ -242,11 +277,31 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
                 <div className="grid grid-cols-1 gap-3 border-t border-border p-3 sm:grid-cols-2 xl:grid-cols-3">
                   {list.map((a) => (
                     <div key={a.id} className="flex flex-col gap-2 rounded-xl border border-border bg-muted/20 p-3">
+                      <div className="flex items-center justify-between">
+                        <span className={`text-xs font-semibold uppercase ${statusColor(a.status)}`}>
+                          {a.status || "sem status"}
+                        </span>
+                        {a.hasToken && <span className="text-[10px] text-muted-foreground">token ok</span>}
+                      </div>
                       <Field label="Email" value={a.email} />
                       <Field label="Senha" value={a.password} />
                       <Field label="Gmail" value={a.gmail} />
                       <Field label="Nome" value={a.notes} />
-                      <div className="mt-1 flex gap-2">
+                      <div className="mt-1 flex flex-wrap gap-2">
+                        <button
+                          onClick={() => authorize(a.id)}
+                          disabled={pending}
+                          className="flex items-center gap-1 rounded-lg border border-border px-2 py-1.5 text-xs"
+                        >
+                          <ShieldCheck className="h-3.5 w-3.5" /> {a.hasToken ? "Reautorizar" : "Autorizar"}
+                        </button>
+                        <button
+                          onClick={() => check(a.id)}
+                          disabled={pending || !a.hasToken}
+                          className="flex items-center gap-1 rounded-lg border border-border px-2 py-1.5 text-xs disabled:opacity-40"
+                        >
+                          <RefreshCw className="h-3.5 w-3.5" /> Checar
+                        </button>
                         <button
                           onClick={() =>
                             copy(
@@ -254,9 +309,9 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
                               "Linha",
                             )
                           }
-                          className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-border px-2 py-1.5 text-xs"
+                          className="flex items-center gap-1 rounded-lg border border-border px-2 py-1.5 text-xs"
                         >
-                          <Copy className="h-3.5 w-3.5" /> linha inteira
+                          <Copy className="h-3.5 w-3.5" /> linha
                         </button>
                         <button
                           onClick={() => remove(a.id)}

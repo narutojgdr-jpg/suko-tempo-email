@@ -204,11 +204,43 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
     })
     const data = await res.json()
     if (data.ok) {
-      setMsg("Tarefa criada. Roda o script no PC.")
+      setMsg("Tarefa criada")
+    } else {
+      setMsg(data.error || "Erro")
+    }
+    setTimeout(() => setMsg(""), 1500)
+  }
+
+  async function verificarDominio(list: SpotifyAccount[]) {
+    const items = list
+      .map((a) => {
+        const e = getEdit(a)
+        return e.cookie ? { accountId: a.id, cookie: e.cookie } : null
+      })
+      .filter(Boolean)
+    if (items.length === 0) {
+      setMsg("Nenhuma com cookie")
+      return
+    }
+    setMsg("")
+    const res = await fetch("/api/spotify/task", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(items),
+    })
+    const data = await res.json()
+    if (data.ok) {
+      setMsg(`${data.created} tarefas criadas`)
     } else {
       setMsg(data.error || "Erro")
     }
     setTimeout(() => setMsg(""), 2000)
+  }
+
+  function fmtDate(iso: string | null) {
+    if (!iso) return "nunca"
+    const d = new Date(iso)
+    return d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
   }
 
   function statusColor(status: string) {
@@ -225,7 +257,7 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
         <div>
           <h1 className="text-2xl font-bold">Spotify</h1>
           <p className="text-sm text-muted-foreground">
-            Verificar manda tarefa pro script do PC.
+            Verificar manda tarefa. Verificar todos do dominio cria varias.
           </p>
         </div>
         <div className="flex gap-2">
@@ -348,17 +380,23 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
           const isOpen = open[domain] !== false
           return (
             <div key={domain} className="rounded-xl border border-border bg-card">
-              <button
-                onClick={() => setOpen((s) => ({ ...s, [domain]: !isOpen }))}
-                className="flex w-full items-center justify-between px-4 py-3 text-left"
-              >
-                <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between px-4 py-3">
+                <button
+                  onClick={() => setOpen((s) => ({ ...s, [domain]: !isOpen }))}
+                  className="flex items-center gap-2 text-left"
+                >
                   {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                   <Music className="h-4 w-4 text-emerald-400" />
                   <span className="font-semibold">{domain}</span>
-                </div>
-                <span className="text-sm text-muted-foreground">{list.length} conta(s)</span>
-              </button>
+                  <span className="text-sm text-muted-foreground">{list.length} conta(s)</span>
+                </button>
+                <button
+                  onClick={() => verificarDominio(list)}
+                  className="flex items-center gap-1 rounded-lg border border-emerald-500/40 px-2 py-1 text-xs text-emerald-400"
+                >
+                  <Play className="h-3.5 w-3.5" /> Verificar todos
+                </button>
+              </div>
               {isOpen && (
                 <div className="grid grid-cols-1 gap-3 border-t border-border p-3 sm:grid-cols-2 xl:grid-cols-3">
                   {list.map((a) => {
@@ -374,6 +412,7 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
                             {a.cookie && <span className="text-[10px] text-sky-400">cookie</span>}
                           </div>
                         </div>
+                        <p className="text-[10px] text-muted-foreground">Ultima: {fmtDate(a.lastChecked)}</p>
                         <label className="text-[10px] uppercase text-muted-foreground">Email
                           <input
                             value={e.email}

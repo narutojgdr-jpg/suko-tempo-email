@@ -85,6 +85,52 @@ export async function addSpotifyAccount(input: {
   return { ok: true }
 }
 
+/** Importa linhas no formato email:senha:nome ou email|senha|nome */
+export async function importSpotifyAccounts(raw: string): Promise<{
+  ok: boolean
+  added: number
+  skipped: number
+  error?: string
+}> {
+  await requireAdmin()
+  await ensureTable()
+  const lines = raw.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+  if (lines.length === 0) return { ok: false, added: 0, skipped: 0, error: "Nada pra importar" }
+
+  const existing = await query<{ email: string }>(
+    `SELECT lower(email) AS email FROM public.spotify_accounts`,
+  )
+  const have = new Set(existing.map((r) => r.email))
+
+  let added = 0
+  let skipped = 0
+  for (const line of lines) {
+    const sep = line.includes("|") && !line.includes(":") ? "|" : ":"
+    const parts = line.split(sep)
+    if (parts.length < 2) {
+      skipped++
+      continue
+    }
+    const email = parts[0].trim().toLowerCase()
+    const password = parts[1].trim()
+    const notes = parts.slice(2).join(sep).trim()
+    if (!email.includes("@") || !password || have.has(email)) {
+      skipped++
+      continue
+    }
+    const domain = extractDomain(email)
+    await query(
+      `INSERT INTO public.spotify_accounts (email, password, notes, domain)
+       VALUES ($1, $2, $3, $4)`,
+      [email, password, notes, domain],
+    )
+    have.add(email)
+    added++
+  }
+  revalidatePath("/admin")
+  return { ok: true, added, skipped }
+}
+
 export async function deleteSpotifyAccount(id: number): Promise<{ ok: boolean }> {
   await requireAdmin()
   await ensureTable()

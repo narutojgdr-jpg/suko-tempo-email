@@ -17,6 +17,7 @@ import {
   Bot,
   ShieldBan,
   Music,
+  Menu,
 } from "lucide-react"
 import { formatUsd, formatBytes } from "@/lib/money"
 import type {
@@ -83,42 +84,58 @@ export function AdminPanel({
   spotifyAccounts,
 }: AdminPanelProps) {
   const [tab, setTab] = useState<Tab>("dashboard")
+  const [collapsed, setCollapsed] = useState(false)
+
+  function select(id: Tab) {
+    setTab(id)
+    if (id === "spotify") setCollapsed(true)
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground md:flex-row">
-      <aside className="flex shrink-0 flex-col border-b border-border bg-card md:w-60 md:border-b-0 md:border-r">
-        <div className="flex items-center gap-2 px-5 py-5">
-          <Crown className="h-5 w-5 text-amber-400" />
-          <span className="text-lg font-bold">SuKo Admin</span>
+      <aside className={`flex shrink-0 flex-col border-b border-border bg-card transition-all md:border-b-0 md:border-r ${collapsed ? "md:w-14" : "md:w-60"}`}>
+        <div className="flex items-center gap-2 px-3 py-4">
+          <button onClick={() => setCollapsed((c) => !c)} className="rounded p-1 hover:bg-muted">
+            <Menu className="h-5 w-5" />
+          </button>
+          {!collapsed && (
+            <>
+              <Crown className="h-5 w-5 text-amber-400" />
+              <span className="text-lg font-bold">SuKo Admin</span>
+            </>
+          )}
         </div>
         <nav className="flex gap-1 overflow-x-auto px-2 pb-2 md:flex-col md:gap-0.5 md:overflow-visible md:pb-0">
           {NAV.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
-              onClick={() => setTab(id)}
+              onClick={() => select(id)}
+              title={label}
               className={`flex items-center gap-2.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                 tab === id
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
+              } ${collapsed ? "justify-center" : ""}`}
             >
               <Icon className="h-4 w-4" />
-              {label}
+              {!collapsed && label}
             </button>
           ))}
         </nav>
-        <div className="mt-auto hidden px-2 pb-4 md:block">
-          <a
-            href="/"
-            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <ExternalLink className="h-4 w-4" />
-            Back to site
-          </a>
-        </div>
+        {!collapsed && (
+          <div className="mt-auto hidden px-2 pb-4 md:block">
+            <a
+              href="/"
+              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <ExternalLink className="h-4 w-4" />
+              Back to site
+            </a>
+          </div>
+        )}
       </aside>
 
-      <main className="flex-1 overflow-x-hidden p-4 md:p-8">
+      <main className="flex-1 overflow-x-hidden p-4 md:p-6">
         {tab === "dashboard" && <Dashboard stats={stats} transactions={transactions} usage={usage} />}
         {tab === "accounts" && <AccountsTab accounts={accounts} gmailPriceCents={stats.gmailPriceCents} />}
         {tab === "pool" && <PoolTab gmails={gmails} />}

@@ -1,10 +1,11 @@
 "use client"
 
 import { useMemo, useState, useTransition } from "react"
-import { Music, Plus, Trash2, Copy, ChevronDown, ChevronRight } from "lucide-react"
+import { Music, Plus, Trash2, Copy, ChevronDown, ChevronRight, Download } from "lucide-react"
 import {
   addSpotifyAccount,
   deleteSpotifyAccount,
+  importSpotifyAccounts,
   type SpotifyAccount,
 } from "@/app/actions/spotify"
 
@@ -13,6 +14,7 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [notes, setNotes] = useState("")
+  const [bulk, setBulk] = useState("")
   const [filter, setFilter] = useState<string | null>(null)
   const [open, setOpen] = useState<Record<string, boolean>>({})
   const [pending, start] = useTransition()
@@ -32,6 +34,10 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
     ? grouped.filter(([d]) => d === filter)
     : grouped
 
+  const exportList = filter
+    ? accounts.filter((a) => a.domain === filter)
+    : accounts
+
   function add() {
     setMsg("")
     start(async () => {
@@ -43,7 +49,20 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
       setEmail("")
       setPassword("")
       setNotes("")
-      // reload simples
+      window.location.reload()
+    })
+  }
+
+  function importBulk() {
+    setMsg("")
+    start(async () => {
+      const res = await importSpotifyAccounts(bulk)
+      if (!res.ok) {
+        setMsg(res.error ?? "Erro")
+        return
+      }
+      setBulk("")
+      setMsg(`Importadas ${res.added}. Puladas ${res.skipped}.`)
       window.location.reload()
     })
   }
@@ -58,21 +77,76 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
 
   function copy(text: string) {
     navigator.clipboard.writeText(text)
+    setMsg("Copiado")
+    setTimeout(() => setMsg(""), 1200)
+  }
+
+  function exportFmt(sep: ":" | "|", withName: boolean) {
+    const lines = exportList.map((a) => {
+      const base = `${a.email}${sep}${a.password}`
+      return withName ? `${base}${sep}${a.notes || ""}` : base
+    })
+    copy(lines.join("\n"))
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Spotify</h1>
-        <p className="text-sm text-muted-foreground">
-          Contas guardadas. O dominio e extraido do email (ex: @india123.tskulzinho.shop → tskulzinho.shop).
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">Spotify</h1>
+          <p className="text-sm text-muted-foreground">
+            Dominio extraido do email (ex: @india123.tskulzinho.shop → tskulzinho.shop).
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => exportFmt(":", true)}
+            className="flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-xs font-medium"
+          >
+            <Download className="h-3.5 w-3.5" /> email:senha:nome
+          </button>
+          <button
+            onClick={() => exportFmt("|", true)}
+            className="flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-xs font-medium"
+          >
+            <Download className="h-3.5 w-3.5" /> email|senha|nome
+          </button>
+          <button
+            onClick={() => exportFmt(":", false)}
+            className="flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-xs font-medium"
+          >
+            <Download className="h-3.5 w-3.5" /> email:senha
+          </button>
+        </div>
       </div>
 
-      {/* Add form */}
+      <div className="rounded-xl border border-border bg-card p-4">
+        <h2 className="mb-2 text-sm font-semibold">Colar em lote</h2>
+        <p className="mb-2 text-xs text-muted-foreground">
+          Uma por linha. Formato email:senha:Nome Completo ou email|senha|Nome. Dominio e reconhecido sozinho.
+        </p>
+        <textarea
+          value={bulk}
+          onChange={(e) => setBulk(e.target.value)}
+          rows={10}
+          placeholder={"paulo@vipbr968.tskulzinho.shop:1Pd!6IWEoJrP:Fernanda Cardoso\nmanuela@super457.tskulzinho.shop|YY!F9AuV2ZT8|Joao Cruz"}
+          className="w-full rounded-lg border border-border bg-background p-3 font-mono text-sm"
+        />
+        <div className="mt-3 flex items-center gap-3">
+          <button
+            onClick={importBulk}
+            disabled={pending || !bulk.trim()}
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
+          >
+            {pending ? "Importando..." : "Importar lote"}
+          </button>
+          {msg && <span className="text-sm text-muted-foreground">{msg}</span>}
+        </div>
+      </div>
+
       <div className="rounded-xl border border-border bg-card p-4">
         <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
-          <Plus className="h-4 w-4" /> Adicionar conta
+          <Plus className="h-4 w-4" /> Adicionar uma
         </h2>
         <div className="grid gap-2 sm:grid-cols-2">
           <input
@@ -90,11 +164,11 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
           <input
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="notas (opcional)"
+            placeholder="nome completo (opcional)"
             className="rounded-lg border border-border bg-background px-3 py-2 text-sm sm:col-span-2"
           />
         </div>
-        <div className="mt-3 flex items-center gap-3">
+        <div className="mt-3">
           <button
             onClick={add}
             disabled={pending || !email}
@@ -102,11 +176,9 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
           >
             {pending ? "Salvando..." : "Salvar"}
           </button>
-          {msg && <span className="text-sm text-destructive">{msg}</span>}
         </div>
       </div>
 
-      {/* Domain summary */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
         <button
           onClick={() => setFilter(null)}
@@ -131,7 +203,6 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
         ))}
       </div>
 
-      {/* Lists */}
       <div className="space-y-3">
         {visible.length === 0 && (
           <p className="text-sm text-muted-foreground">Nenhuma conta ainda.</p>
@@ -163,9 +234,9 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
                       </div>
                       <div className="flex shrink-0 gap-1">
                         <button
-                          onClick={() => copy(`${a.email}:${a.password}`)}
+                          onClick={() => copy(`${a.email}:${a.password}:${a.notes}`)}
                           className="rounded p-1.5 text-muted-foreground hover:bg-muted"
-                          title="Copiar email:senha"
+                          title="Copiar email:senha:nome"
                         >
                           <Copy className="h-4 w-4" />
                         </button>

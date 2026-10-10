@@ -19,12 +19,13 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
   const [password, setPassword] = useState("")
   const [gmail, setGmail] = useState("")
   const [notes, setNotes] = useState("")
+  const [cookie, setCookie] = useState("")
   const [bulk, setBulk] = useState("")
   const [filter, setFilter] = useState<string | null>(null)
   const [open, setOpen] = useState<Record<string, boolean>>({})
   const [pending, start] = useTransition()
   const [msg, setMsg] = useState("")
-  const [edits, setEdits] = useState<Record<number, { email: string; password: string; gmail: string; notes: string }>>({})
+  const [edits, setEdits] = useState<Record<number, { email: string; password: string; gmail: string; notes: string; cookie: string }>>({})
 
   const grouped = useMemo(() => {
     const map = new Map<string, SpotifyAccount[]>()
@@ -45,12 +46,12 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
     : accounts
 
   function getEdit(a: SpotifyAccount) {
-    return edits[a.id] || { email: a.email, password: a.password, gmail: a.gmail, notes: a.notes }
+    return edits[a.id] || { email: a.email, password: a.password, gmail: a.gmail, notes: a.notes, cookie: a.cookie || "" }
   }
 
-  function setEdit(id: number, field: "email" | "password" | "gmail" | "notes", value: string, base: SpotifyAccount) {
+  function setEdit(id: number, field: "email" | "password" | "gmail" | "notes" | "cookie", value: string, base: SpotifyAccount) {
     setEdits((prev) => {
-      const cur = prev[id] || { email: base.email, password: base.password, gmail: base.gmail, notes: base.notes }
+      const cur = prev[id] || { email: base.email, password: base.password, gmail: base.gmail, notes: base.notes, cookie: base.cookie || "" }
       return { ...prev, [id]: { ...cur, [field]: value } }
     })
   }
@@ -69,7 +70,7 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
   function add() {
     setMsg("")
     start(async () => {
-      const res = await addSpotifyAccount({ email, password, gmail, notes })
+      const res = await addSpotifyAccount({ email, password, gmail, notes, cookie })
       if (!res.ok) {
         setMsg(res.error ?? "Erro")
         return
@@ -78,6 +79,7 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
       setPassword("")
       setGmail("")
       setNotes("")
+      setCookie("")
       const list = await listSpotifyAccounts()
       setAccounts(list)
     })
@@ -120,7 +122,7 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
       setAccounts((prev) =>
         prev.map((x) =>
           x.id === id
-            ? { ...x, email: e.email, password: e.password, gmail: e.gmail, notes: e.notes, domain: domainOf(e.email) }
+            ? { ...x, email: e.email, password: e.password, gmail: e.gmail, notes: e.notes, cookie: e.cookie, domain: domainOf(e.email) }
             : x,
         ),
       )
@@ -152,7 +154,7 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
 
   function exportAll() {
     const lines = exportList.map(
-      (a) => `${a.email}|${a.password}|${a.gmail || ""}|${a.notes || ""}`,
+      (a) => `${a.email}|${a.password}|${a.gmail || ""}|${a.notes || ""}|${a.cookie || ""}`,
     )
     copy(lines.join("\n"), "Lote")
   }
@@ -203,7 +205,7 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
         <div>
           <h1 className="text-2xl font-bold">Spotify</h1>
           <p className="text-sm text-muted-foreground">
-            Edita o card e salva. Checar nao recarrega a pagina.
+            Edita o card e salva. Inclui cookie sp_dc.
           </p>
         </div>
         <div className="flex gap-2">
@@ -218,7 +220,7 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
             onClick={exportAll}
             className="flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-xs font-medium"
           >
-            <Download className="h-3.5 w-3.5" /> email|senha|gmail|nome
+            <Download className="h-3.5 w-3.5" /> email|senha|gmail|nome|cookie
           </button>
         </div>
       </div>
@@ -226,13 +228,13 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
       <div className="rounded-xl border border-border bg-card p-4">
         <h2 className="mb-2 text-sm font-semibold">Colar em lote</h2>
         <p className="mb-2 text-xs text-muted-foreground">
-          Uma por linha: email|senha|gmail|Nome. Se faltar senha, gmail ou nome, grava o que tiver.
+          Uma por linha: email|senha|gmail|Nome|cookie. Se faltar algo, grava o que tiver.
         </p>
         <textarea
           value={bulk}
           onChange={(e) => setBulk(e.target.value)}
           rows={10}
-          placeholder={"paulo@vipbr968.tskulzinho.shop|1Pd!6IWEoJrP|paulo.real@gmail.com|Fernanda Cardoso\nmanuela@super457.tskulzinho.shop||manuela@gmail.com|Joao Cruz"}
+          placeholder={"paulo@vipbr968.tskulzinho.shop|1Pd!6IWEoJrP|paulo.real@gmail.com|Fernanda Cardoso|AQCjcciIl0LYF821...\nmanuela@super457.tskulzinho.shop||manuela@gmail.com|Joao Cruz|"}
           className="w-full rounded-lg border border-border bg-background p-3 font-mono text-sm"
         />
         <div className="mt-3 flex items-center gap-3">
@@ -275,6 +277,12 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
             onChange={(e) => setNotes(e.target.value)}
             placeholder="nome (opcional)"
             className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+          />
+          <input
+            value={cookie}
+            onChange={(e) => setCookie(e.target.value)}
+            placeholder="cookie sp_dc (opcional)"
+            className="rounded-lg border border-border bg-background px-3 py-2 text-sm sm:col-span-2"
           />
         </div>
         <div className="mt-3">
@@ -341,7 +349,10 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
                           <span className={`text-xs font-semibold uppercase ${statusColor(a.status)}`}>
                             {a.status || "sem status"}
                           </span>
-                          {a.hasToken && <span className="text-[10px] text-muted-foreground">token ok</span>}
+                          <div className="flex gap-2">
+                            {a.hasToken && <span className="text-[10px] text-muted-foreground">token ok</span>}
+                            {a.cookie && <span className="text-[10px] text-sky-400">cookie</span>}
+                          </div>
                         </div>
                         <label className="text-[10px] uppercase text-muted-foreground">Email
                           <input
@@ -371,6 +382,14 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
                             className="mt-0.5 w-full rounded border border-border bg-background px-2 py-1 font-mono text-xs"
                           />
                         </label>
+                        <label className="text-[10px] uppercase text-muted-foreground">Cookie sp_dc
+                          <input
+                            value={e.cookie}
+                            onChange={(ev) => setEdit(a.id, "cookie", ev.target.value, a)}
+                            className="mt-0.5 w-full rounded border border-border bg-background px-2 py-1 font-mono text-xs"
+                            placeholder="sp_dc"
+                          />
+                        </label>
                         <div className="mt-1 flex flex-wrap gap-2">
                           <button
                             onClick={() => save(a.id)}
@@ -394,7 +413,7 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
                             <RefreshCw className="h-3.5 w-3.5" /> Checar
                           </button>
                           <button
-                            onClick={() => copy(`${e.email}|${e.password}|${e.gmail || ""}|${e.notes || ""}`, "Linha")}
+                            onClick={() => copy(`${e.email}|${e.password}|${e.gmail || ""}|${e.notes || ""}|${e.cookie || ""}`, "Linha")}
                             className="flex items-center gap-1 rounded-lg border border-border px-2 py-1.5 text-xs"
                           >
                             <Copy className="h-3.5 w-3.5" /> linha

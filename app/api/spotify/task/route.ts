@@ -46,15 +46,18 @@ export async function GET() {
 export async function POST(req: Request) {
   await ensureTasks()
   const body = await req.json().catch(() => ({}))
-  const { accountId, cookie } = body as { accountId?: number; cookie?: string }
-  if (!accountId || !cookie) {
-    return NextResponse.json({ ok: false, error: "faltou accountId ou cookie" }, { status: 400 })
+  const items = Array.isArray(body) ? body : [body]
+  const valid = items.filter((x: any) => x?.accountId && x?.cookie)
+  if (valid.length === 0) {
+    return NextResponse.json({ ok: false, error: "nada valido" }, { status: 400 })
   }
-  await query(
-    `INSERT INTO public.spotify_tasks (account_id, cookie) VALUES ($1, $2)`,
-    [accountId, cookie],
-  )
-  return NextResponse.json({ ok: true })
+  for (const item of valid) {
+    await query(
+      `INSERT INTO public.spotify_tasks (account_id, cookie) VALUES ($1, $2)`,
+      [item.accountId, item.cookie],
+    )
+  }
+  return NextResponse.json({ ok: true, created: valid.length })
 }
 
 export async function PUT(req: Request) {

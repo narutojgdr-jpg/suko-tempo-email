@@ -11,7 +11,10 @@ export async function GET(req: NextRequest) {
   const state = req.nextUrl.searchParams.get("state")
   const error = req.nextUrl.searchParams.get("error")
 
+  console.log("[spotify] callback", { hasCode: !!code, state, error, hasClient: !!CLIENT_ID && !!CLIENT_SECRET })
+
   if (error || !code) {
+    console.log("[spotify] sem code")
     return NextResponse.redirect(APPS)
   }
 
@@ -29,10 +32,14 @@ export async function GET(req: NextRequest) {
   })
 
   if (!tokenRes.ok) {
+    const txt = await tokenRes.text()
+    console.log("[spotify] token fail", tokenRes.status, txt)
     return NextResponse.redirect(APPS)
   }
 
   const data = (await tokenRes.json()) as { refresh_token?: string; access_token?: string }
+  console.log("[spotify] token ok", { hasRefresh: !!data.refresh_token, hasAccess: !!data.access_token })
+
   if (!data.refresh_token || !data.access_token) {
     return NextResponse.redirect(APPS)
   }
@@ -40,6 +47,7 @@ export async function GET(req: NextRequest) {
   const accountId = state ? Number(state) : 0
   if (accountId) {
     await saveSpotifyToken(accountId, data.refresh_token)
+    console.log("[spotify] saved on id", accountId)
     return NextResponse.redirect(APPS)
   }
 
@@ -47,13 +55,18 @@ export async function GET(req: NextRequest) {
     headers: { Authorization: `Bearer ${data.access_token}` },
   })
   if (!meRes.ok) {
+    const txt = await meRes.text()
+    console.log("[spotify] me fail", meRes.status, txt)
     return NextResponse.redirect(APPS)
   }
   const me = (await meRes.json()) as { email?: string; product?: string }
+  console.log("[spotify] me", { email: me.email, product: me.product })
+
   if (!me.email) {
     return NextResponse.redirect(APPS)
   }
 
   await upsertSpotifyByEmail(me.email, data.refresh_token, me.product)
+  console.log("[spotify] upsert ok", me.email)
   return NextResponse.redirect(APPS)
 }

@@ -14,7 +14,7 @@ export type SpotifyAccount = {
 }
 
 /** Extrai o dominio registravel. Ex: user@india123.tskulzinho.shop -> tskulzinho.shop */
-export function extractDomain(email: string): string {
+function extractDomain(email: string): string {
   const at = email.lastIndexOf("@")
   if (at < 1) return ""
   const host = email.slice(at + 1).toLowerCase().trim()

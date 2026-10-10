@@ -9,6 +9,7 @@ import {
   getStorageUsage,
 } from "@/app/actions/admin"
 import { listResellerPages } from "@/app/actions/reseller"
+import { listSpotifyAccounts } from "@/app/actions/spotify"
 import { AdminPanel } from "@/components/admin/admin-panel"
 
 export const metadata = {
@@ -17,21 +18,21 @@ export const metadata = {
 }
 
 export default async function AdminPage() {
-  // Hard gate: only the admin Google account gets in. Everyone else is
-  // bounced to the home page and never sees any admin data.
   if (!(await isAdmin())) {
     redirect("/")
   }
 
-  const [stats, accounts, gmails, wishlist, transactions, usage, resellerPages] = await Promise.all([
-    getDashboardStats(),
-    listAccounts(),
-    listGmails(),
-    listWishlist(),
-    listTransactions(),
-    getStorageUsage(),
-    listResellerPages(),
-  ])
+  const [stats, accounts, gmails, wishlist, transactions, usage, resellerPages, spotifyAccounts] =
+    await Promise.all([
+      getDashboardStats(),
+      listAccounts(),
+      listGmails(),
+      listWishlist(),
+      listTransactions(),
+      getStorageUsage(),
+      listResellerPages(),
+      listSpotifyAccounts(),
+    ])
 
   return (
     <AdminPanel
@@ -42,6 +43,7 @@ export default async function AdminPage() {
       transactions={transactions}
       usage={usage}
       resellerPages={resellerPages}
+      spotifyAccounts={spotifyAccounts}
     />
   )
 }

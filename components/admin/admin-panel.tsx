@@ -16,6 +16,7 @@ import {
   Store,
   Bot,
   ShieldBan,
+  Music,
 } from "lucide-react"
 import { formatUsd, formatBytes } from "@/lib/money"
 import type {
@@ -27,6 +28,7 @@ import type {
   StorageUsage,
 } from "@/app/actions/admin"
 import type { ResellerPageRow } from "@/app/actions/reseller"
+import type { SpotifyAccount } from "@/app/actions/spotify"
 import { AccountsTab } from "@/components/admin/accounts-tab"
 import { PoolTab } from "@/components/admin/pool-tab"
 import { WishlistTab } from "@/components/admin/wishlist-tab"
@@ -34,11 +36,13 @@ import { TransactionsTab } from "@/components/admin/transactions-tab"
 import { ResellersTab } from "@/components/admin/resellers-tab"
 import { ChatTab } from "@/components/admin/chat-tab"
 import { BlocklistTab } from "@/components/admin/blocklist-tab"
+import { SpotifyTab } from "@/components/admin/spotify-tab"
 
 type Tab =
   | "dashboard"
   | "accounts"
   | "pool"
+  | "spotify"
   | "resellers"
   | "chat"
   | "blocklist"
@@ -53,12 +57,14 @@ interface AdminPanelProps {
   transactions: TransactionRow[]
   usage: StorageUsage
   resellerPages: ResellerPageRow[]
+  spotifyAccounts: SpotifyAccount[]
 }
 
 const NAV: { id: Tab; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "accounts", label: "Accounts", icon: Users },
   { id: "pool", label: "Gmail Pool", icon: Mail },
+  { id: "spotify", label: "Spotify", icon: Music },
   { id: "resellers", label: "Revendedores", icon: Store },
   { id: "chat", label: "SuKo AI", icon: Bot },
   { id: "blocklist", label: "Bloqueios", icon: ShieldBan },
@@ -66,12 +72,20 @@ const NAV: { id: Tab; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "transactions", label: "Transactions", icon: ReceiptText },
 ]
 
-export function AdminPanel({ stats, accounts, gmails, wishlist, transactions, usage, resellerPages }: AdminPanelProps) {
+export function AdminPanel({
+  stats,
+  accounts,
+  gmails,
+  wishlist,
+  transactions,
+  usage,
+  resellerPages,
+  spotifyAccounts,
+}: AdminPanelProps) {
   const [tab, setTab] = useState<Tab>("dashboard")
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground md:flex-row">
-      {/* Sidebar */}
       <aside className="flex shrink-0 flex-col border-b border-border bg-card md:w-60 md:border-b-0 md:border-r">
         <div className="flex items-center gap-2 px-5 py-5">
           <Crown className="h-5 w-5 text-amber-400" />
@@ -104,11 +118,11 @@ export function AdminPanel({ stats, accounts, gmails, wishlist, transactions, us
         </div>
       </aside>
 
-      {/* Content */}
       <main className="flex-1 overflow-x-hidden p-4 md:p-8">
         {tab === "dashboard" && <Dashboard stats={stats} transactions={transactions} usage={usage} />}
         {tab === "accounts" && <AccountsTab accounts={accounts} gmailPriceCents={stats.gmailPriceCents} />}
         {tab === "pool" && <PoolTab gmails={gmails} />}
+        {tab === "spotify" && <SpotifyTab accounts={spotifyAccounts} />}
         {tab === "resellers" && <ResellersTab pages={resellerPages} />}
         {tab === "chat" && <ChatTab />}
         {tab === "blocklist" && <BlocklistTab />}

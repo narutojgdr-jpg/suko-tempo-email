@@ -151,8 +151,8 @@ export async function deleteSpotifyAccount(id: number): Promise<{ ok: boolean }>
   return { ok: true }
 }
 
-/** URL pra autorizar uma conta. state = id da conta. */
-export async function getSpotifyAuthorizeUrl(accountId: number): Promise<string> {
+/** URL fixa pra autorizar. Cria a conta pelo email atual do Spotify. */
+export async function getSpotifyAuthorizeUrl(accountId?: number): Promise<string> {
   await requireAdmin()
   if (!CLIENT_ID) return ""
   const params = new URLSearchParams({
@@ -160,19 +160,45 @@ export async function getSpotifyAuthorizeUrl(accountId: number): Promise<string>
     client_id: CLIENT_ID,
     scope: SCOPE,
     redirect_uri: REDIRECT,
-    state: String(accountId),
     show_dialog: "true",
   })
+  if (accountId) params.set("state", String(accountId))
   return `https://accounts.spotify.com/authorize?${params.toString()}`
 }
 
-/** Salva o refresh token depois do callback. */
+/** Salva token numa conta que ja existe. */
 export async function saveSpotifyToken(accountId: number, refreshToken: string) {
   await ensureTable()
   await query(
     `UPDATE public.spotify_accounts SET refresh_token = $2, status = 'autorizada', last_checked = now() WHERE id = $1`,
     [accountId, refreshToken],
   )
+  revalidatePath("/admin")
+}
+
+/** Cria ou atualiza conta pelo email atual + token. Usado no callback sem state. */
+export async function upsertSpotifyByEmail(email: string, refreshToken: string, product?: string) {
+  await ensureTable()
+  const clean = email.trim().toLowerCase()
+  if (!clean.includes("@")) return
+  const domain = extractDomain(clean)
+  const status = product === "premium" ? "premium" : product ? "free" : "autorizada"
+  const existing = await query<{ id: string }>(
+    `SELECT id FROM public.spotify_accounts WHERE lower(email) = $1 LIMIT 1`,
+    [clean],
+  )
+  if (existing[0]) {
+    await query(
+      `UPDATE public.spotify_accounts SET refresh_token = $2, status = $3, last_checked = now() WHERE id = $1`,
+      [Number(existing[0].id), refreshToken, status],
+    )
+  } else {
+    await query(
+      `INSERT INTO public.spotify_accounts (email, password, gmail, notes, domain, refresh_token, status, last_checked)
+       VALUES ($1, '', $1, '', $2, $3, $4, now())`,
+      [clean, domain, refreshToken, status],
+    )
+  }
   revalidatePath("/admin")
 }
 

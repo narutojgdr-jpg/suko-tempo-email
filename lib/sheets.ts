@@ -13,6 +13,10 @@ function getAuth() {
   })
 }
 
+function normalize(s: string) {
+  return s.toLowerCase().replace(/\s+/g, "").replace(/[^a-z0-9@.+]/g, "")
+}
+
 export async function updateSheetStatus(gmail: string, status: string) {
   const auth = getAuth()
   if (!auth || !gmail) return
@@ -23,19 +27,22 @@ export async function updateSheetStatus(gmail: string, status: string) {
       range: `${SHEET_NAME}!A:A`,
     })
     const rows = res.data.values || []
-    const needle = gmail.toLowerCase()
+    const needle = normalize(gmail)
+    const upper = status.toUpperCase()
     for (let i = 0; i < rows.length; i++) {
-      const cell = String(rows[i]?.[0] || "").toLowerCase()
+      const cell = normalize(String(rows[i]?.[0] || ""))
       if (cell.includes(needle)) {
         await sheets.spreadsheets.values.update({
           spreadsheetId: SPREADSHEET_ID,
           range: `${SHEET_NAME}!E${i + 1}`,
           valueInputOption: "RAW",
-          requestBody: { values: [[status]] },
+          requestBody: { values: [[upper]] },
         })
+        console.log("[sheets] updated row", i + 1, upper)
         return
       }
     }
+    console.log("[sheets] gmail not found", gmail)
   } catch (e) {
     console.error("[sheets] update fail", e)
   }

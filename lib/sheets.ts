@@ -1,7 +1,6 @@
 import { google } from "googleapis"
 
 const SPREADSHEET_ID = "1cjOIGfxHlYdUlPOIldXhdiULaF6sKaVbYt5rg8RLZH4"
-const SHEET_NAME = "Sheet1"
 
 function getAuth() {
   const key = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n")
@@ -17,14 +16,21 @@ function clean(s: string) {
   return s.toLowerCase().replace(/\s+/g, "")
 }
 
+async function getSheetName(sheets: any): Promise<string> {
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID })
+  const title = meta.data.sheets?.[0]?.properties?.title
+  return title || "Sheet1"
+}
+
 export async function updateSheetStatus(gmail: string, status: string) {
   const auth = getAuth()
   if (!auth || !gmail) return
   try {
     const sheets = google.sheets({ version: "v4", auth })
+    const sheetName = await getSheetName(sheets)
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEET_NAME}!A:A`,
+      range: `'${sheetName}'!A:A`,
     })
     const rows = res.data.values || []
     const needle = clean(gmail)
@@ -36,16 +42,16 @@ export async function updateSheetStatus(gmail: string, status: string) {
         if (clean(found) === needle) {
           await sheets.spreadsheets.values.update({
             spreadsheetId: SPREADSHEET_ID,
-            range: `${SHEET_NAME}!E${i + 1}`,
+            range: `'${sheetName}'!E${i + 1}`,
             valueInputOption: "RAW",
             requestBody: { values: [[upper]] },
           })
-          console.log("[sheets] updated row", i + 1, upper)
+          console.log("[sheets] updated row", i + 1, upper, "sheet", sheetName)
           return
         }
       }
     }
-    console.log("[sheets] gmail not found", gmail)
+    console.log("[sheets] gmail not found", gmail, "sheet", sheetName)
   } catch (e) {
     console.error("[sheets] update fail", e)
   }

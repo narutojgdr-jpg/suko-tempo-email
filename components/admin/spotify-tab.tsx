@@ -252,245 +252,103 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+    <div className="space-y-3 max-w-full">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-bold">Spotify</h1>
-          <p className="text-sm text-muted-foreground">
-            Verificar manda tarefa. Verificar todos do dominio cria varias.
-          </p>
+          <h1 className="text-xl font-bold">Spotify</h1>
+          <p className="text-xs text-muted-foreground">Verificar manda tarefa. Verificar todos cria varias.</p>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={refresh}
-            disabled={pending}
-            className="flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-xs font-medium"
-          >
-            <RefreshCw className="h-3.5 w-3.5" /> Atualizar
+        <div className="flex gap-1.5">
+          <button onClick={refresh} disabled={pending} className="flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px]">
+            <RefreshCw className="h-3 w-3" /> Atualizar
           </button>
-          <button
-            onClick={exportAll}
-            className="flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-xs font-medium"
-          >
-            <Download className="h-3.5 w-3.5" /> email|senha|gmail|nome|cookie
+          <button onClick={exportAll} className="flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px]">
+            <Download className="h-3 w-3" /> Exportar
           </button>
         </div>
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-4">
-        <h2 className="mb-2 text-sm font-semibold">Colar em lote</h2>
-        <p className="mb-2 text-xs text-muted-foreground">
-          Uma por linha: email|senha|gmail|Nome|cookie. Se faltar algo, grava o que tiver.
-        </p>
+      <div className="rounded-lg border border-border bg-card p-2.5">
+        <h2 className="mb-1 text-xs font-semibold">Colar em lote</h2>
         <textarea
           value={bulk}
           onChange={(e) => setBulk(e.target.value)}
-          rows={10}
-          placeholder={"paulo@vipbr968.tskulzinho.shop|1Pd!6IWEoJrP|paulo.real@gmail.com|Fernanda Cardoso|AQCjcciIl0LYF821...\nmanuela@super457.tskulzinho.shop||manuela@gmail.com|Joao Cruz|"}
-          className="w-full rounded-lg border border-border bg-background p-3 font-mono text-sm"
+          rows={6}
+          placeholder="email|senha|gmail|Nome|cookie"
+          className="w-full rounded border border-border bg-background p-2 font-mono text-xs"
         />
-        <div className="mt-3 flex items-center gap-3">
-          <button
-            onClick={importBulk}
-            disabled={pending || !bulk.trim()}
-            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
-          >
-            {pending ? "Importando..." : "Importar lote"}
+        <div className="mt-1.5 flex items-center gap-2">
+          <button onClick={importBulk} disabled={pending || !bulk.trim()} className="rounded bg-primary px-3 py-1 text-xs font-medium text-primary-foreground disabled:opacity-50">
+            {pending ? "..." : "Importar"}
           </button>
-          {msg && <span className="text-sm text-muted-foreground">{msg}</span>}
+          {msg && <span className="text-xs text-muted-foreground">{msg}</span>}
         </div>
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-4">
-        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
-          <Plus className="h-4 w-4" /> Adicionar uma
-        </h2>
-        <div className="grid gap-2 sm:grid-cols-2">
-          <input
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="email original"
-            className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
-          />
-          <input
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="senha (opcional)"
-            className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
-          />
-          <input
-            value={gmail}
-            onChange={(e) => setGmail(e.target.value)}
-            placeholder="gmail atual (opcional)"
-            className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
-          />
-          <input
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="nome (opcional)"
-            className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
-          />
-          <input
-            value={cookie}
-            onChange={(e) => setCookie(e.target.value)}
-            placeholder="cookie sp_dc (opcional)"
-            className="rounded-lg border border-border bg-background px-3 py-2 text-sm sm:col-span-2"
-          />
+      <div className="rounded-lg border border-border bg-card p-2.5">
+        <h2 className="mb-1.5 flex items-center gap-1 text-xs font-semibold"><Plus className="h-3 w-3" /> Adicionar</h2>
+        <div className="grid gap-1.5 grid-cols-2 lg:grid-cols-5">
+          <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email" className="rounded border border-border bg-background px-2 py-1 text-xs" />
+          <input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="senha" className="rounded border border-border bg-background px-2 py-1 text-xs" />
+          <input value={gmail} onChange={(e) => setGmail(e.target.value)} placeholder="gmail" className="rounded border border-border bg-background px-2 py-1 text-xs" />
+          <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="nome" className="rounded border border-border bg-background px-2 py-1 text-xs" />
+          <input value={cookie} onChange={(e) => setCookie(e.target.value)} placeholder="sp_dc" className="rounded border border-border bg-background px-2 py-1 text-xs col-span-2 lg:col-span-1" />
         </div>
-        <div className="mt-3">
-          <button
-            onClick={add}
-            disabled={pending || !email}
-            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
-          >
-            {pending ? "Salvando..." : "Salvar"}
-          </button>
-        </div>
+        <button onClick={add} disabled={pending || !email} className="mt-1.5 rounded bg-primary px-3 py-1 text-xs font-medium text-primary-foreground disabled:opacity-50">
+          {pending ? "..." : "Salvar"}
+        </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-        <button
-          onClick={() => setFilter(null)}
-          className={`rounded-xl border px-3 py-3 text-left text-sm ${
-            filter === null ? "border-primary bg-primary/10" : "border-border bg-card"
-          }`}
-        >
-          <p className="text-xs text-muted-foreground">Todos</p>
-          <p className="text-lg font-bold tabular-nums">{accounts.length}</p>
+      <div className="flex flex-wrap gap-1.5">
+        <button onClick={() => setFilter(null)} className={`rounded border px-2 py-1.5 text-xs ${filter === null ? "border-primary bg-primary/10" : "border-border bg-card"}`}>
+          Todos <span className="font-bold">{accounts.length}</span>
         </button>
         {grouped.map(([domain, list]) => (
-          <button
-            key={domain}
-            onClick={() => setFilter(domain)}
-            className={`rounded-xl border px-3 py-3 text-left text-sm ${
-              filter === domain ? "border-primary bg-primary/10" : "border-border bg-card"
-            }`}
-          >
-            <p className="truncate text-xs text-muted-foreground">{domain}</p>
-            <p className="text-lg font-bold tabular-nums">{list.length}</p>
+          <button key={domain} onClick={() => setFilter(domain)} className={`rounded border px-2 py-1.5 text-xs ${filter === domain ? "border-primary bg-primary/10" : "border-border bg-card"}`}>
+            <span className="truncate max-w-[120px] inline-block align-bottom">{domain}</span> <span className="font-bold">{list.length}</span>
           </button>
         ))}
       </div>
 
-      <div className="space-y-3">
-        {visible.length === 0 && (
-          <p className="text-sm text-muted-foreground">Nenhuma conta ainda.</p>
-        )}
+      <div className="space-y-2">
+        {visible.length === 0 && <p className="text-xs text-muted-foreground">Nenhuma conta.</p>}
         {visible.map(([domain, list]) => {
           const isOpen = open[domain] !== false
           return (
-            <div key={domain} className="rounded-xl border border-border bg-card">
-              <div className="flex items-center justify-between px-4 py-3">
-                <button
-                  onClick={() => setOpen((s) => ({ ...s, [domain]: !isOpen }))}
-                  className="flex items-center gap-2 text-left"
-                >
-                  {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                  <Music className="h-4 w-4 text-emerald-400" />
-                  <span className="font-semibold">{domain}</span>
-                  <span className="text-sm text-muted-foreground">{list.length} conta(s)</span>
+            <div key={domain} className="rounded-lg border border-border bg-card">
+              <div className="flex items-center justify-between px-2.5 py-1.5">
+                <button onClick={() => setOpen((s) => ({ ...s, [domain]: !isOpen }))} className="flex items-center gap-1.5 text-left text-sm">
+                  {isOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                  <Music className="h-3.5 w-3.5 text-emerald-400" />
+                  <span className="font-medium">{domain}</span>
+                  <span className="text-xs text-muted-foreground">{list.length}</span>
                 </button>
-                <button
-                  onClick={() => verificarDominio(list)}
-                  className="flex items-center gap-1 rounded-lg border border-emerald-500/40 px-2 py-1 text-xs text-emerald-400"
-                >
-                  <Play className="h-3.5 w-3.5" /> Verificar todos
+                <button onClick={() => verificarDominio(list)} className="flex items-center gap-1 rounded border border-emerald-500/40 px-1.5 py-0.5 text-[11px] text-emerald-400">
+                  <Play className="h-3 w-3" /> Verificar todos
                 </button>
               </div>
               {isOpen && (
-                <div className="grid grid-cols-1 gap-3 border-t border-border p-3 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="grid grid-cols-1 gap-2 border-t border-border p-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                   {list.map((a) => {
                     const e = getEdit(a)
                     return (
-                      <div key={a.id} className="flex flex-col gap-2 rounded-xl border border-border bg-muted/20 p-3">
+                      <div key={a.id} className="flex flex-col gap-1 rounded border border-border bg-muted/10 p-2">
                         <div className="flex items-center justify-between">
-                          <span className={`text-xs font-semibold uppercase ${statusColor(a.status)}`}>
-                            {a.status || "sem status"}
-                          </span>
-                          <div className="flex gap-2">
-                            {a.hasToken && <span className="text-[10px] text-muted-foreground">token ok</span>}
-                            {a.cookie && <span className="text-[10px] text-sky-400">cookie</span>}
-                          </div>
+                          <span className={`text-[10px] font-semibold uppercase ${statusColor(a.status)}`}>{a.status || "—"}</span>
+                          <span className="text-[9px] text-muted-foreground">{fmtDate(a.lastChecked)}</span>
                         </div>
-                        <p className="text-[10px] text-muted-foreground">Ultima: {fmtDate(a.lastChecked)}</p>
-                        <label className="text-[10px] uppercase text-muted-foreground">Email
-                          <input
-                            value={e.email}
-                            onChange={(ev) => setEdit(a.id, "email", ev.target.value, a)}
-                            className="mt-0.5 w-full rounded border border-border bg-background px-2 py-1 font-mono text-xs"
-                          />
-                        </label>
-                        <label className="text-[10px] uppercase text-muted-foreground">Senha
-                          <input
-                            value={e.password}
-                            onChange={(ev) => setEdit(a.id, "password", ev.target.value, a)}
-                            className="mt-0.5 w-full rounded border border-border bg-background px-2 py-1 font-mono text-xs"
-                          />
-                        </label>
-                        <label className="text-[10px] uppercase text-muted-foreground">Gmail
-                          <input
-                            value={e.gmail}
-                            onChange={(ev) => setEdit(a.id, "gmail", ev.target.value, a)}
-                            className="mt-0.5 w-full rounded border border-border bg-background px-2 py-1 font-mono text-xs"
-                          />
-                        </label>
-                        <label className="text-[10px] uppercase text-muted-foreground">Nome
-                          <input
-                            value={e.notes}
-                            onChange={(ev) => setEdit(a.id, "notes", ev.target.value, a)}
-                            className="mt-0.5 w-full rounded border border-border bg-background px-2 py-1 font-mono text-xs"
-                          />
-                        </label>
-                        <label className="text-[10px] uppercase text-muted-foreground">Cookie sp_dc
-                          <input
-                            value={e.cookie}
-                            onChange={(ev) => setEdit(a.id, "cookie", ev.target.value, a)}
-                            className="mt-0.5 w-full rounded border border-border bg-background px-2 py-1 font-mono text-xs"
-                            placeholder="sp_dc"
-                          />
-                        </label>
-                        <div className="mt-1 flex flex-wrap gap-2">
-                          <button
-                            onClick={() => save(a.id)}
-                            disabled={pending}
-                            className="flex items-center gap-1 rounded-lg border border-border px-2 py-1.5 text-xs"
-                          >
-                            <Save className="h-3.5 w-3.5" /> Salvar
-                          </button>
-                          <button
-                            onClick={() => verificar(a.id, e.cookie)}
-                            disabled={!e.cookie}
-                            className="flex items-center gap-1 rounded-lg border border-emerald-500/40 px-2 py-1.5 text-xs text-emerald-400 disabled:opacity-40"
-                          >
-                            <Play className="h-3.5 w-3.5" /> Verificar
-                          </button>
-                          <button
-                            onClick={() => authorize(a.id)}
-                            disabled={pending}
-                            className="flex items-center gap-1 rounded-lg border border-border px-2 py-1.5 text-xs"
-                          >
-                            <ShieldCheck className="h-3.5 w-3.5" /> {a.hasToken ? "Reautorizar" : "Autorizar"}
-                          </button>
-                          <button
-                            onClick={() => check(a.id)}
-                            disabled={pending || !a.hasToken}
-                            className="flex items-center gap-1 rounded-lg border border-border px-2 py-1.5 text-xs disabled:opacity-40"
-                          >
-                            <RefreshCw className="h-3.5 w-3.5" /> Checar
-                          </button>
-                          <button
-                            onClick={() => copy(`${e.email}|${e.password}|${e.gmail || ""}|${e.notes || ""}|${e.cookie || ""}`, "Linha")}
-                            className="flex items-center gap-1 rounded-lg border border-border px-2 py-1.5 text-xs"
-                          >
-                            <Copy className="h-3.5 w-3.5" /> linha
-                          </button>
-                          <button
-                            onClick={() => remove(a.id)}
-                            className="rounded-lg border border-destructive/40 px-2 py-1.5 text-destructive"
-                            title="Apagar"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                        <input value={e.email} onChange={(ev) => setEdit(a.id, "email", ev.target.value, a)} className="w-full rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[11px]" placeholder="email" />
+                        <input value={e.password} onChange={(ev) => setEdit(a.id, "password", ev.target.value, a)} className="w-full rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[11px]" placeholder="senha" />
+                        <input value={e.gmail} onChange={(ev) => setEdit(a.id, "gmail", ev.target.value, a)} className="w-full rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[11px]" placeholder="gmail" />
+                        <input value={e.notes} onChange={(ev) => setEdit(a.id, "notes", ev.target.value, a)} className="w-full rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[11px]" placeholder="nome" />
+                        <input value={e.cookie} onChange={(ev) => setEdit(a.id, "cookie", ev.target.value, a)} className="w-full rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[11px]" placeholder="sp_dc" />
+                        <div className="mt-0.5 flex flex-wrap gap-1">
+                          <button onClick={() => save(a.id)} disabled={pending} className="rounded border border-border px-1.5 py-0.5 text-[10px]"><Save className="h-3 w-3 inline" /></button>
+                          <button onClick={() => verificar(a.id, e.cookie)} disabled={!e.cookie} className="rounded border border-emerald-500/40 px-1.5 py-0.5 text-[10px] text-emerald-400 disabled:opacity-40"><Play className="h-3 w-3 inline" /></button>
+                          <button onClick={() => authorize(a.id)} disabled={pending} className="rounded border border-border px-1.5 py-0.5 text-[10px]"><ShieldCheck className="h-3 w-3 inline" /></button>
+                          <button onClick={() => check(a.id)} disabled={pending || !a.hasToken} className="rounded border border-border px-1.5 py-0.5 text-[10px] disabled:opacity-40"><RefreshCw className="h-3 w-3 inline" /></button>
+                          <button onClick={() => copy(`${e.email}|${e.password}|${e.gmail || ""}|${e.notes || ""}|${e.cookie || ""}`)} className="rounded border border-border px-1.5 py-0.5 text-[10px]"><Copy className="h-3 w-3 inline" /></button>
+                          <button onClick={() => remove(a.id)} className="rounded border border-destructive/40 px-1.5 py-0.5 text-destructive text-[10px]"><Trash2 className="h-3 w-3 inline" /></button>
                         </div>
                       </div>
                     )

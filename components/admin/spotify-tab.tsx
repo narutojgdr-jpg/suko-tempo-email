@@ -13,6 +13,7 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
   const [accounts, setAccounts] = useState(initial)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [gmail, setGmail] = useState("")
   const [notes, setNotes] = useState("")
   const [bulk, setBulk] = useState("")
   const [filter, setFilter] = useState<string | null>(null)
@@ -41,13 +42,14 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
   function add() {
     setMsg("")
     start(async () => {
-      const res = await addSpotifyAccount({ email, password, notes })
+      const res = await addSpotifyAccount({ email, password, gmail, notes })
       if (!res.ok) {
         setMsg(res.error ?? "Erro")
         return
       }
       setEmail("")
       setPassword("")
+      setGmail("")
       setNotes("")
       window.location.reload()
     })
@@ -81,11 +83,10 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
     setTimeout(() => setMsg(""), 1200)
   }
 
-  function exportFmt(sep: ":" | "|", withName: boolean) {
-    const lines = exportList.map((a) => {
-      const base = `${a.email}${sep}${a.password}`
-      return withName ? `${base}${sep}${a.notes || ""}` : base
-    })
+  function exportAll() {
+    const lines = exportList.map(
+      (a) => `${a.email}|${a.password}|${a.gmail || ""}|${a.notes || ""}`,
+    )
     copy(lines.join("\n"))
   }
 
@@ -98,38 +99,24 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
             Dominio extraido do email (ex: @india123.tskulzinho.shop → tskulzinho.shop).
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => exportFmt(":", true)}
-            className="flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-xs font-medium"
-          >
-            <Download className="h-3.5 w-3.5" /> email:senha:nome
-          </button>
-          <button
-            onClick={() => exportFmt("|", true)}
-            className="flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-xs font-medium"
-          >
-            <Download className="h-3.5 w-3.5" /> email|senha|nome
-          </button>
-          <button
-            onClick={() => exportFmt(":", false)}
-            className="flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-xs font-medium"
-          >
-            <Download className="h-3.5 w-3.5" /> email:senha
-          </button>
-        </div>
+        <button
+          onClick={exportAll}
+          className="flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-xs font-medium"
+        >
+          <Download className="h-3.5 w-3.5" /> email|senha|gmail|nome
+        </button>
       </div>
 
       <div className="rounded-xl border border-border bg-card p-4">
         <h2 className="mb-2 text-sm font-semibold">Colar em lote</h2>
         <p className="mb-2 text-xs text-muted-foreground">
-          Uma por linha. Formato email:senha:Nome Completo ou email|senha|Nome. Dominio e reconhecido sozinho.
+          Uma por linha: email|senha|gmail|Nome. Se faltar senha, gmail ou nome, grava o que tiver.
         </p>
         <textarea
           value={bulk}
           onChange={(e) => setBulk(e.target.value)}
           rows={10}
-          placeholder={"paulo@vipbr968.tskulzinho.shop:1Pd!6IWEoJrP:Fernanda Cardoso\nmanuela@super457.tskulzinho.shop|YY!F9AuV2ZT8|Joao Cruz"}
+          placeholder={"paulo@vipbr968.tskulzinho.shop|1Pd!6IWEoJrP|paulo.real@gmail.com|Fernanda Cardoso\nmanuela@super457.tskulzinho.shop||manuela@gmail.com|Joao Cruz"}
           className="w-full rounded-lg border border-border bg-background p-3 font-mono text-sm"
         />
         <div className="mt-3 flex items-center gap-3">
@@ -152,20 +139,26 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
           <input
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="email@india123.tskulzinho.shop"
+            placeholder="email original"
             className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
           />
           <input
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="senha"
+            placeholder="senha (opcional)"
+            className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+          />
+          <input
+            value={gmail}
+            onChange={(e) => setGmail(e.target.value)}
+            placeholder="gmail atual (opcional)"
             className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
           />
           <input
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="nome completo (opcional)"
-            className="rounded-lg border border-border bg-background px-3 py-2 text-sm sm:col-span-2"
+            placeholder="nome (opcional)"
+            className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
           />
         </div>
         <div className="mt-3">
@@ -229,14 +222,18 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
                       <div className="min-w-0">
                         <p className="truncate font-medium">{a.email}</p>
                         <p className="truncate text-xs text-muted-foreground">
-                          {a.password}{a.notes ? ` · ${a.notes}` : ""}
+                          {a.password || "sem senha"}
+                          {a.gmail ? ` · ${a.gmail}` : ""}
+                          {a.notes ? ` · ${a.notes}` : ""}
                         </p>
                       </div>
                       <div className="flex shrink-0 gap-1">
                         <button
-                          onClick={() => copy(`${a.email}:${a.password}:${a.notes}`)}
+                          onClick={() =>
+                            copy(`${a.email}|${a.password}|${a.gmail || ""}|${a.notes || ""}`)
+                          }
                           className="rounded p-1.5 text-muted-foreground hover:bg-muted"
-                          title="Copiar email:senha:nome"
+                          title="Copiar email|senha|gmail|nome"
                         >
                           <Copy className="h-4 w-4" />
                         </button>

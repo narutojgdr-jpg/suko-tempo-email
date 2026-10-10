@@ -10,6 +10,7 @@ export type SpotifyAccount = {
   password: string
   gmail: string
   notes: string
+  cookie: string
   domain: string
   createdAt: string
   status: string
@@ -41,6 +42,7 @@ async function ensureTable() {
   await query(`ALTER TABLE public.spotify_accounts ADD COLUMN IF NOT EXISTS refresh_token TEXT NOT NULL DEFAULT ''`)
   await query(`ALTER TABLE public.spotify_accounts ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT ''`)
   await query(`ALTER TABLE public.spotify_accounts ADD COLUMN IF NOT EXISTS last_checked TIMESTAMPTZ`)
+  await query(`ALTER TABLE public.spotify_accounts ADD COLUMN IF NOT EXISTS cookie TEXT NOT NULL DEFAULT ''`)
   await query(`CREATE INDEX IF NOT EXISTS idx_spotify_accounts_domain ON public.spotify_accounts (domain)`)
 }
 
@@ -58,13 +60,14 @@ export async function listSpotifyAccounts(): Promise<SpotifyAccount[]> {
     password: string
     gmail: string
     notes: string
+    cookie: string
     domain: string
     created_at: string
     status: string
     refresh_token: string
     last_checked: string | null
   }>(
-    `SELECT id, email, password, gmail, notes, domain, created_at, status, refresh_token, last_checked
+    `SELECT id, email, password, gmail, notes, cookie, domain, created_at, status, refresh_token, last_checked
      FROM public.spotify_accounts
      ORDER BY domain ASC, created_at DESC`,
   )
@@ -74,6 +77,7 @@ export async function listSpotifyAccounts(): Promise<SpotifyAccount[]> {
     password: r.password,
     gmail: r.gmail || "",
     notes: r.notes,
+    cookie: r.cookie || "",
     domain: r.domain || extractDomain(r.email),
     createdAt: r.created_at,
     status: r.status || "",
@@ -87,6 +91,7 @@ export async function addSpotifyAccount(input: {
   password: string
   gmail?: string
   notes?: string
+  cookie?: string
 }): Promise<{ ok: boolean; error?: string }> {
   await requireAdmin()
   const email = input.email.trim().toLowerCase()
@@ -96,9 +101,9 @@ export async function addSpotifyAccount(input: {
   await ensureTable()
   const domain = extractDomain(email)
   await query(
-    `INSERT INTO public.spotify_accounts (email, password, gmail, notes, domain)
-     VALUES ($1, $2, $3, $4, $5)`,
-    [email, input.password || "", (input.gmail ?? "").trim(), (input.notes ?? "").trim(), domain],
+    `INSERT INTO public.spotify_accounts (email, password, gmail, notes, cookie, domain)
+     VALUES ($1, $2, $3, $4, $5, $6)`,
+    [email, input.password || "", (input.gmail ?? "").trim(), (input.notes ?? "").trim(), (input.cookie ?? "").trim(), domain],
   )
   revalidatePath("/admin")
   return { ok: true }
@@ -106,7 +111,7 @@ export async function addSpotifyAccount(input: {
 
 export async function updateSpotifyAccount(
   id: number,
-  input: { email: string; password: string; gmail: string; notes: string },
+  input: { email: string; password: string; gmail: string; notes: string; cookie: string },
 ): Promise<{ ok: boolean; error?: string }> {
   await requireAdmin()
   await ensureTable()
@@ -114,8 +119,8 @@ export async function updateSpotifyAccount(
   if (!email.includes("@")) return { ok: false, error: "Email invalido" }
   const domain = extractDomain(email)
   await query(
-    `UPDATE public.spotify_accounts SET email = $2, password = $3, gmail = $4, notes = $5, domain = $6 WHERE id = $1`,
-    [id, email, input.password || "", input.gmail || "", input.notes || "", domain],
+    `UPDATE public.spotify_accounts SET email = $2, password = $3, gmail = $4, notes = $5, cookie = $6, domain = $7 WHERE id = $1`,
+    [id, email, input.password || "", input.gmail || "", input.notes || "", input.cookie || "", domain],
   )
   revalidatePath("/admin")
   return { ok: true }
@@ -142,16 +147,17 @@ export async function importSpotifyAccounts(raw: string): Promise<{
     const email = (parts[0] || "").toLowerCase()
     const password = parts[1] || ""
     const gmail = parts[2] || ""
-    const notes = parts.slice(3).join(" | ") || ""
+    const notes = parts[3] || ""
+    const cookie = parts[4] || ""
     if (!email.includes("@") || have.has(email)) {
       skipped++
       continue
     }
     const domain = extractDomain(email)
     await query(
-      `INSERT INTO public.spotify_accounts (email, password, gmail, notes, domain)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [email, password, gmail, notes, domain],
+      `INSERT INTO public.spotify_accounts (email, password, gmail, notes, cookie, domain)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [email, password, gmail, notes, cookie, domain],
     )
     have.add(email)
     added++

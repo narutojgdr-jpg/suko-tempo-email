@@ -13,8 +13,13 @@ function getAuth() {
   })
 }
 
-function normalize(s: string) {
-  return s.toLowerCase().replace(/\s+/g, "").replace(/[^a-z0-9@.+]/g, "")
+function gmailKey(email: string) {
+  const lower = email.toLowerCase()
+  const at = lower.lastIndexOf("@")
+  if (at < 1) return lower.replace(/\s+/g, "")
+  const local = lower.slice(0, at).replace(/\./g, "").replace(/\s+/g, "")
+  const domain = lower.slice(at + 1).replace(/\s+/g, "")
+  return local + "@" + domain
 }
 
 export async function updateSheetStatus(gmail: string, status: string) {
@@ -27,22 +32,26 @@ export async function updateSheetStatus(gmail: string, status: string) {
       range: `${SHEET_NAME}!A:A`,
     })
     const rows = res.data.values || []
-    const needle = normalize(gmail)
+    const needle = gmailKey(gmail)
     const upper = status.toUpperCase()
     for (let i = 0; i < rows.length; i++) {
-      const cell = normalize(String(rows[i]?.[0] || ""))
-      if (cell.includes(needle)) {
-        await sheets.spreadsheets.values.update({
-          spreadsheetId: SPREADSHEET_ID,
-          range: `${SHEET_NAME}!E${i + 1}`,
-          valueInputOption: "RAW",
-          requestBody: { values: [[upper]] },
-        })
-        console.log("[sheets] updated row", i + 1, upper)
-        return
+      const cell = String(rows[i]?.[0] || "")
+      const match = cell.match(/[a-z0-9.+]+@[a-z0-9.]+/gi)
+      if (!match) continue
+      for (const found of match) {
+        if (gmailKey(found) === needle) {
+          await sheets.spreadsheets.values.update({
+            spreadsheetId: SPREADSHEET_ID,
+            range: `${SHEET_NAME}!E${i + 1}`,
+            valueInputOption: "RAW",
+            requestBody: { values: [[upper]] },
+          })
+          console.log("[sheets] updated row", i + 1, upper)
+          return
+        }
       }
     }
-    console.log("[sheets] gmail not found", gmail)
+    console.log("[sheets] gmail not found", gmail, needle)
   } catch (e) {
     console.error("[sheets] update fail", e)
   }

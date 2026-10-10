@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { query } from "@/lib/db"
+import { updateSheetStatus } from "@/lib/sheets"
 
 async function ensureTasks() {
   await query(`
@@ -76,10 +77,18 @@ export async function PUT(req: Request) {
     [taskId],
   )
   if (task[0]) {
+    const accountId = Number(task[0].account_id)
     await query(
       `UPDATE public.spotify_accounts SET status = $2, last_checked = now() WHERE id = $1`,
-      [Number(task[0].account_id), result],
+      [accountId, result],
     )
+    const acc = await query<{ gmail: string }>(
+      `SELECT gmail FROM public.spotify_accounts WHERE id = $1`,
+      [accountId],
+    )
+    if (acc[0]?.gmail) {
+      await updateSheetStatus(acc[0].gmail, result)
+    }
   }
   return NextResponse.json({ ok: true })
 }

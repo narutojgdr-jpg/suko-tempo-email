@@ -82,12 +82,17 @@ export async function PUT(req: Request) {
       `UPDATE public.spotify_accounts SET status = $2, last_checked = now() WHERE id = $1`,
       [accountId, result],
     )
-    const acc = await query<{ gmail: string }>(
-      `SELECT gmail FROM public.spotify_accounts WHERE id = $1`,
+    const acc = await query<{ gmail: string; email: string }>(
+      `SELECT gmail, email FROM public.spotify_accounts WHERE id = $1`,
       [accountId],
     )
-    if (acc[0]?.gmail) {
-      await updateSheetStatus(acc[0].gmail, result)
+    const gmail = acc[0]?.gmail || ""
+    const email = acc[0]?.email || ""
+    const toMatch = gmail.includes("@") ? gmail : email.includes("@") ? email : ""
+    if (toMatch) {
+      await updateSheetStatus(toMatch, result)
+    } else {
+      console.log("[sheets] sem email valido pra conta", accountId)
     }
   }
   return NextResponse.json({ ok: true })

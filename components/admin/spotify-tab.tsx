@@ -14,24 +14,38 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
   const [accounts, setAccounts] = useState(initial)
   const [bulk, setBulk] = useState("")
   const [filter, setFilter] = useState<string | null>(null)
+  const [statusFilter, setStatusFilter] = useState<string | null>(null)
   const [open, setOpen] = useState<Record<string, boolean>>({})
   const [pending, start] = useTransition()
   const [msg, setMsg] = useState("")
   const [edits, setEdits] = useState<Record<number, { email: string; password: string; gmail: string; notes: string; cookie: string }>>({})
   const [selected, setSelected] = useState<Set<number>>(new Set())
 
+  const filtered = useMemo(() => {
+    if (!statusFilter) return accounts
+    if (statusFilter === "sem") return accounts.filter((a) => !a.status)
+    return accounts.filter((a) => a.status === statusFilter)
+  }, [accounts, statusFilter])
+
   const grouped = useMemo(() => {
     const map = new Map<string, SpotifyAccount[]>()
-    for (const a of accounts) {
+    for (const a of filtered) {
       const d = a.domain || "sem-dominio"
       if (!map.has(d)) map.set(d, [])
       map.get(d)!.push(a)
     }
     return Array.from(map.entries()).sort((a, b) => b[1].length - a[1].length)
-  }, [accounts])
+  }, [filtered])
 
   const visible = filter ? grouped.filter(([d]) => d === filter) : grouped
-  const exportList = filter ? accounts.filter((a) => a.domain === filter) : accounts
+  const exportList = filter ? filtered.filter((a) => a.domain === filter) : filtered
+
+  const counts = useMemo(() => ({
+    premium: accounts.filter((a) => a.status === "premium").length,
+    free: accounts.filter((a) => a.status === "free").length,
+    morta: accounts.filter((a) => a.status === "morta").length,
+    sem: accounts.filter((a) => !a.status).length,
+  }), [accounts])
 
   function toggleSelect(id: number) {
     setSelected((prev) => {
@@ -310,8 +324,26 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <button onClick={() => setFilter(null)} className={`rounded-lg border px-3 py-2 text-sm ${filter === null ? "border-primary bg-primary/10" : "border-border bg-card"}`}>
+        <button onClick={() => setStatusFilter(null)} className={`rounded-lg border px-3 py-2 text-sm ${statusFilter === null ? "border-primary bg-primary/10" : "border-border bg-card"}`}>
           Todos <span className="ml-1 font-bold">{accounts.length}</span>
+        </button>
+        <button onClick={() => setStatusFilter("sem")} className={`rounded-lg border px-3 py-2 text-sm ${statusFilter === "sem" ? "border-primary bg-primary/10" : "border-border bg-card"}`}>
+          Sem verificar <span className="ml-1 font-bold">{counts.sem}</span>
+        </button>
+        <button onClick={() => setStatusFilter("premium")} className={`rounded-lg border px-3 py-2 text-sm ${statusFilter === "premium" ? "border-emerald-500 bg-emerald-500/10 text-emerald-300" : "border-border bg-card"}`}>
+          Premium <span className="ml-1 font-bold">{counts.premium}</span>
+        </button>
+        <button onClick={() => setStatusFilter("free")} className={`rounded-lg border px-3 py-2 text-sm ${statusFilter === "free" ? "border-amber-500 bg-amber-500/10 text-amber-300" : "border-border bg-card"}`}>
+          Free <span className="ml-1 font-bold">{counts.free}</span>
+        </button>
+        <button onClick={() => setStatusFilter("morta")} className={`rounded-lg border px-3 py-2 text-sm ${statusFilter === "morta" ? "border-red-500 bg-red-500/10 text-red-300" : "border-border bg-card"}`}>
+          Morta <span className="ml-1 font-bold">{counts.morta}</span>
+        </button>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <button onClick={() => setFilter(null)} className={`rounded-lg border px-3 py-2 text-sm ${filter === null ? "border-primary bg-primary/10" : "border-border bg-card"}`}>
+          Todos dominios <span className="ml-1 font-bold">{filtered.length}</span>
         </button>
         {grouped.map(([domain, list]) => (
           <button key={domain} onClick={() => setFilter(domain)} className={`rounded-lg border px-3 py-2 text-sm ${filter === domain ? "border-primary bg-primary/10" : "border-border bg-card"}`}>

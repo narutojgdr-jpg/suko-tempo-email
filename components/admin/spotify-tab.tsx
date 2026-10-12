@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState, useTransition } from "react"
-import { Music, Trash2, Copy, ChevronDown, ChevronRight, Download, Play, RefreshCw, Save } from "lucide-react"
+import { Music, Trash2, Copy, ChevronDown, ChevronRight, Download, Play, RefreshCw, Save, CheckSquare, Square } from "lucide-react"
 import {
   deleteSpotifyAccount,
   importSpotifyAccounts,
@@ -18,6 +18,7 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
   const [pending, start] = useTransition()
   const [msg, setMsg] = useState("")
   const [edits, setEdits] = useState<Record<number, { email: string; password: string; gmail: string; notes: string; cookie: string }>>({})
+  const [selected, setSelected] = useState<Set<number>>(new Set())
 
   const grouped = useMemo(() => {
     const map = new Map<string, SpotifyAccount[]>()
@@ -31,6 +32,32 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
 
   const visible = filter ? grouped.filter(([d]) => d === filter) : grouped
   const exportList = filter ? accounts.filter((a) => a.domain === filter) : accounts
+
+  function toggleSelect(id: number) {
+    setSelected((prev) => {
+      const n = new Set(prev)
+      if (n.has(id)) n.delete(id)
+      else n.add(id)
+      return n
+    })
+  }
+
+  function selectDomain(list: SpotifyAccount[]) {
+    setSelected((prev) => {
+      const n = new Set(prev)
+      const allSelected = list.every((a) => n.has(a.id))
+      if (allSelected) {
+        list.forEach((a) => n.delete(a.id))
+      } else {
+        list.forEach((a) => n.add(a.id))
+      }
+      return n
+    })
+  }
+
+  function clearSelection() {
+    setSelected(new Set())
+  }
 
   function getEdit(a: SpotifyAccount) {
     return edits[a.id] || { email: a.email, password: a.password, gmail: a.gmail, notes: a.notes, cookie: a.cookie || "" }
@@ -74,6 +101,27 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
     start(async () => {
       await deleteSpotifyAccount(id)
       setAccounts((prev) => prev.filter((a) => a.id !== id))
+      setSelected((prev) => {
+        const n = new Set(prev)
+        n.delete(id)
+        return n
+      })
+    })
+  }
+
+  async function removeSelected() {
+    if (selected.size === 0) return
+    if (!confirm(`Apagar ${selected.size} contas?`)) return
+    const ids = Array.from(selected)
+    setMsg("")
+    start(async () => {
+      for (const id of ids) {
+        await deleteSpotifyAccount(id)
+      }
+      setAccounts((prev) => prev.filter((a) => !selected.has(a.id)))
+      setSelected(new Set())
+      setMsg(`${ids.length} apagadas`)
+      setTimeout(() => setMsg(""), 1500)
     })
   }
 
@@ -128,6 +176,15 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
     copy(lines.join("\n"), "Lote")
   }
 
+  function copySelected() {
+    const list = accounts.filter((a) => selected.has(a.id))
+    const lines = list.map((a) => {
+      const e = getEdit(a)
+      return `${e.email}|${e.password}|${e.gmail || ""}|${e.notes || ""}|${e.cookie || ""}`
+    })
+    copy(lines.join("\n"), `${list.length} contas`)
+  }
+
   async function verificar(id: number, cookie: string) {
     if (!cookie) {
       setMsg("Sem cookie")
@@ -142,6 +199,29 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
     const data = await res.json()
     setMsg(data.ok ? "Tarefa criada" : data.error || "Erro")
     setTimeout(() => setMsg(""), 1500)
+  }
+
+  async function verificarSelected() {
+    const list = accounts.filter((a) => selected.has(a.id))
+    const items = list
+      .map((a) => {
+        const e = getEdit(a)
+        return e.cookie ? { accountId: a.id, cookie: e.cookie } : null
+      })
+      .filter(Boolean)
+    if (items.length === 0) {
+      setMsg("Nenhuma com cookie")
+      return
+    }
+    setMsg("")
+    const res = await fetch("/api/spotify/task", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(items),
+    })
+    const data = await res.json()
+    setMsg(data.ok ? `${data.created} tarefas criadas` : data.error || "Erro")
+    setTimeout(() => setMsg(""), 2000)
   }
 
   async function verificarDominio(list: SpotifyAccount[]) {
@@ -196,6 +276,22 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
         </div>
       </div>
 
+      {selected.size > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-primary/40 bg-primary/5 px-4 py-3">
+          <span className="text-sm font-medium">{selected.size} selecionadas</span>
+          <button onClick={verificarSelected} className="flex items-center gap-1 rounded-lg border border-emerald-500/40 px-3 py-1.5 text-sm text-emerald-400">
+            <Play className="h-4 w-4" /> Verificar
+          </button>
+          <button onClick={copySelected} className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-sm">
+            <Copy className="h-4 w-4" /> Copiar
+          </button>
+          <button onClick={removeSelected} disabled={pending} className="flex items-center gap-1 rounded-lg border border-destructive/40 px-3 py-1.5 text-sm text-destructive">
+            <Trash2 className="h-4 w-4" /> Apagar
+          </button>
+          <button onClick={clearSelection} className="ml-auto text-sm text-muted-foreground hover:text-foreground">Limpar</button>
+        </div>
+      )}
+
       <div className="rounded-xl border border-border bg-card p-4">
         <h2 className="mb-2 text-sm font-semibold">Colar em lote</h2>
         <textarea
@@ -228,15 +324,23 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
         {visible.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma conta.</p>}
         {visible.map(([domain, list]) => {
           const isOpen = open[domain] !== false
+          const domainSelected = list.filter((a) => selected.has(a.id)).length
+          const allSelected = domainSelected === list.length && list.length > 0
           return (
             <div key={domain} className="rounded-xl border border-border bg-card">
               <div className="flex items-center justify-between px-4 py-3">
-                <button onClick={() => setOpen((s) => ({ ...s, [domain]: !isOpen }))} className="flex items-center gap-2 text-left">
-                  {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                  <Music className="h-4 w-4 text-emerald-400" />
-                  <span className="font-semibold">{domain}</span>
-                  <span className="text-sm text-muted-foreground">{list.length}</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => selectDomain(list)} className="text-muted-foreground hover:text-foreground">
+                    {allSelected ? <CheckSquare className="h-4 w-4 text-primary" /> : <Square className="h-4 w-4" />}
+                  </button>
+                  <button onClick={() => setOpen((s) => ({ ...s, [domain]: !isOpen }))} className="flex items-center gap-2 text-left">
+                    {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    <Music className="h-4 w-4 text-emerald-400" />
+                    <span className="font-semibold">{domain}</span>
+                    <span className="text-sm text-muted-foreground">{list.length}</span>
+                    {domainSelected > 0 && <span className="text-xs text-primary">({domainSelected})</span>}
+                  </button>
+                </div>
                 <button onClick={() => verificarDominio(list)} className="flex items-center gap-1.5 rounded-lg border border-emerald-500/40 px-3 py-1.5 text-sm text-emerald-400">
                   <Play className="h-4 w-4" /> Verificar todos
                 </button>
@@ -245,10 +349,16 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
                 <div className="grid grid-cols-1 gap-3 border-t border-border p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {list.map((a) => {
                     const e = getEdit(a)
+                    const isSelected = selected.has(a.id)
                     return (
-                      <div key={a.id} className="flex flex-col gap-2 rounded-lg border border-border bg-background p-3">
+                      <div key={a.id} className={`flex flex-col gap-2 rounded-lg border p-3 ${isSelected ? "border-primary bg-primary/5" : "border-border bg-background"}`}>
                         <div className="flex items-center justify-between">
-                          <span className={`rounded px-2 py-0.5 text-xs font-semibold uppercase ${statusColor(a.status)}`}>{a.status || "—"}</span>
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => toggleSelect(a.id)} className="text-muted-foreground hover:text-foreground">
+                              {isSelected ? <CheckSquare className="h-4 w-4 text-primary" /> : <Square className="h-4 w-4" />}
+                            </button>
+                            <span className={`rounded px-2 py-0.5 text-xs font-semibold uppercase ${statusColor(a.status)}`}>{a.status || "\u2014"}</span>
+                          </div>
                           <span className="text-xs text-muted-foreground">{fmtDate(a.lastChecked)}</span>
                         </div>
                         <label className="text-xs text-muted-foreground">Email</label>

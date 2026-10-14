@@ -147,8 +147,19 @@ export async function importSpotifyAccounts(raw: string): Promise<{
     const email = (parts[0] || "").toLowerCase()
     const password = parts[1] || ""
     const gmail = parts[2] || ""
-    const notes = parts[3] || ""
-    const cookie = parts[4] || ""
+    let notes = ""
+    let cookie = ""
+    if (parts.length >= 5) {
+      notes = parts[3] || ""
+      cookie = parts[4] || ""
+    } else if (parts.length === 4) {
+      const p3 = parts[3] || ""
+      if (p3.startsWith("AQ") && p3.length > 80) {
+        cookie = p3
+      } else {
+        notes = p3
+      }
+    }
     if (!email.includes("@") || have.has(email)) {
       skipped++
       continue

@@ -97,3 +97,17 @@ export async function PUT(req: Request) {
   }
   return NextResponse.json({ ok: true })
 }
+
+export async function DELETE() {
+  await ensureTasks()
+  const result = await query<{ count: string }>(
+    `WITH deleted AS (
+       DELETE FROM public.spotify_tasks
+       WHERE status IN ('pending', 'running')
+       RETURNING id
+     )
+     SELECT COUNT(*)::text AS count FROM deleted`,
+  )
+  const deleted = Number(result[0]?.count || 0)
+  return NextResponse.json({ ok: true, deleted })
+}

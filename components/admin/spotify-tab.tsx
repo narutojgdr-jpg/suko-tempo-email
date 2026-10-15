@@ -273,6 +273,20 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
     return "bg-muted text-muted-foreground"
   }
 
+  async function clearTasks() {
+    if (!confirm("Eliminar TODAS as tarefas pendentes e em andamento?")) return
+    setMsg("")
+    try {
+      const res = await fetch("/api/spotify/task", { method: "DELETE" })
+      const data = await res.json()
+      setMsg(data.ok ? `${data.deleted} tarefas eliminadas` : "Erro ao limpar")
+      setTimeout(() => setMsg(""), 2000)
+    } catch {
+      setMsg("Erro ao limpar tarefas")
+      setTimeout(() => setMsg(""), 2000)
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -286,6 +300,9 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
           </button>
           <button onClick={exportAll} className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm">
             <Download className="h-4 w-4" /> Exportar
+          </button>
+          <button onClick={clearTasks} className="flex items-center gap-1.5 rounded-lg border border-destructive/40 px-3 py-1.5 text-sm text-destructive">
+            <Trash2 className="h-4 w-4" /> Limpar fila
           </button>
         </div>
       </div>

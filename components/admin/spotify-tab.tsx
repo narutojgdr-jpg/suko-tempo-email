@@ -5,6 +5,7 @@ import { Music, Trash2, Copy, ChevronDown, ChevronRight, Download, Play, Refresh
 import {
   deleteSpotifyAccount,
   importSpotifyAccounts,
+  setSpotifyStatus,
   updateSpotifyAccount,
   listSpotifyAccounts,
   type SpotifyAccount,
@@ -22,9 +23,11 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
   const [selected, setSelected] = useState<Set<number>>(new Set())
 
   const filtered = useMemo(() => {
-    if (!statusFilter) return accounts
-    if (statusFilter === "sem") return accounts.filter((a) => !a.status)
-    return accounts.filter((a) => a.status === statusFilter)
+    const active = accounts.filter((a) => a.status !== "descontinuada")
+    if (statusFilter === "descontinuada") return accounts.filter((a) => a.status === "descontinuada")
+    if (!statusFilter) return active
+    if (statusFilter === "sem") return active.filter((a) => !a.status)
+    return active.filter((a) => a.status === statusFilter)
   }, [accounts, statusFilter])
 
   const grouped = useMemo(() => {
@@ -44,7 +47,9 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
     premium: accounts.filter((a) => a.status === "premium").length,
     free: accounts.filter((a) => a.status === "free").length,
     morta: accounts.filter((a) => a.status === "morta").length,
-    sem: accounts.filter((a) => !a.status).length,
+    sem: accounts.filter((a) => !a.status && a.status !== "descontinuada").length,
+    descontinuada: accounts.filter((a) => a.status === "descontinuada").length,
+    ativos: accounts.filter((a) => a.status !== "descontinuada").length,
   }), [accounts])
 
   function toggleSelect(id: number) {
@@ -216,7 +221,7 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
   }
 
   async function verificarSelected() {
-    const list = accounts.filter((a) => selected.has(a.id))
+    const list = accounts.filter((a) => selected.has(a.id) && a.status !== "descontinuada")
     const items = list
       .map((a) => {
         const e = getEdit(a)
@@ -239,7 +244,8 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
   }
 
   async function verificarDominio(list: SpotifyAccount[]) {
-    const items = list
+    const active = list.filter((a) => a.status !== "descontinuada")
+    const items = active
       .map((a) => {
         const e = getEdit(a)
         return e.cookie ? { accountId: a.id, cookie: e.cookie } : null
@@ -270,7 +276,24 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
     if (status === "premium") return "bg-emerald-500/20 text-emerald-300"
     if (status === "free") return "bg-amber-500/20 text-amber-300"
     if (status === "morta") return "bg-red-500/20 text-red-300"
+    if (status === "descontinuada") return "bg-zinc-500/20 text-zinc-400"
     return "bg-muted text-muted-foreground"
+  }
+
+  async function marcarDescontinuadas() {
+    if (selected.size === 0) return
+    if (!confirm(`Marcar ${selected.size} contas como descontinuadas?`)) return
+    const ids = Array.from(selected)
+    setMsg("")
+    start(async () => {
+      const res = await setSpotifyStatus(ids, "descontinuada")
+      if (res.ok) {
+        setAccounts((prev) => prev.map((a) => ids.includes(a.id) ? { ...a, status: "descontinuada" } : a))
+        setSelected(new Set())
+        setMsg(`${res.updated} marcadas como descontinuadas`)
+        setTimeout(() => setMsg(""), 1500)
+      }
+    })
   }
 
   async function clearTasks() {
@@ -316,6 +339,9 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
           <button onClick={copySelected} className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-sm">
             <Copy className="h-4 w-4" /> Copiar
           </button>
+          <button onClick={marcarDescontinuadas} disabled={pending} className="flex items-center gap-1 rounded-lg border border-zinc-500/40 px-3 py-1.5 text-sm text-zinc-400">
+            Descontinuar
+          </button>
           <button onClick={removeSelected} disabled={pending} className="flex items-center gap-1 rounded-lg border border-destructive/40 px-3 py-1.5 text-sm text-destructive">
             <Trash2 className="h-4 w-4" /> Apagar
           </button>
@@ -342,7 +368,7 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
 
       <div className="flex flex-wrap gap-2">
         <button onClick={() => setStatusFilter(null)} className={`rounded-lg border px-3 py-2 text-sm ${statusFilter === null ? "border-primary bg-primary/10" : "border-border bg-card"}`}>
-          Todos <span className="ml-1 font-bold">{accounts.length}</span>
+          Todos <span className="ml-1 font-bold">{counts.ativos}</span>
         </button>
         <button onClick={() => setStatusFilter("sem")} className={`rounded-lg border px-3 py-2 text-sm ${statusFilter === "sem" ? "border-primary bg-primary/10" : "border-border bg-card"}`}>
           Sem verificar <span className="ml-1 font-bold">{counts.sem}</span>
@@ -355,6 +381,9 @@ export function SpotifyTab({ accounts: initial }: { accounts: SpotifyAccount[] }
         </button>
         <button onClick={() => setStatusFilter("morta")} className={`rounded-lg border px-3 py-2 text-sm ${statusFilter === "morta" ? "border-red-500 bg-red-500/10 text-red-300" : "border-border bg-card"}`}>
           Morta <span className="ml-1 font-bold">{counts.morta}</span>
+        </button>
+        <button onClick={() => setStatusFilter("descontinuada")} className={`rounded-lg border px-3 py-2 text-sm ${statusFilter === "descontinuada" ? "border-zinc-500 bg-zinc-500/10 text-zinc-300" : "border-border bg-card"}`}>
+          Descontinuadas <span className="ml-1 font-bold">{counts.descontinuada}</span>
         </button>
       </div>
 

@@ -183,6 +183,111 @@ export async function deleteSpotifyAccount(id: number): Promise<{ ok: boolean }>
   return { ok: true }
 }
 
+export async function getSpotifyAuthorizeUrl(accountId?: number): Promise<string> {
+  await requireAdmin()
+  const state = accountId ? String(accountId) : ""
+  const params = new URLSearchParams({
+    client_id: CLIENT_ID,
+    response_type: "code",
+    redirect_uri: REDIRECT,
+    scope: SCOPE,
+    state,
+  })
+  return `https://accounts.spotify.com/authorize?${params.toString()}`
+}
+
+export async function saveSpotifyToken(accountId: number, refreshToken: string) {
+  await requireAdmin()
+  await ensureTable()
+  await query(
+    `UPDATE public.spotify_accounts SET refresh_token = $2 WHERE id = $1`,
+    [accountId, refreshToken],
+  )
+  revalidatePath("/admin")
+  return { ok: true }
+}
+
+export async function upsertSpotifyByEmail(email: string, refreshToken: string, product?: string) {
+  await requireAdmin()
+  await ensureTable()
+  const clean = email.trim().toLowerCase()
+  if (!clean.includes("@")) return { ok: false, error: "email invalido" }
+  const domain = extractDomain(clean)
+  const status = product === "premium" ? "premium" : product === "free" ? "free" : ""
+  await query(
+    `INSERT INTO public.spotify_accounts (email, password, notes, domain, refresh_token, status)
+     VALUES ($1, '', '(auto)', $2, $3, $4)
+     ON CONFLICT (email) DO UPDATE SET
+       refresh_token = EXCLUDED.refresh_token,
+       status = CASE WHEN EXCLUDED.status != '' THEN EXCLUDED.status ELSE public.spotify_accounts.status END,
+       domain = EXCLUDED.domain`,
+    [clean, domain, refreshToken, status],
+  )
+  revalidatePath("/admin")
+  return { ok: true }
+}
+
+export async function checkSpotifyAccount(accountId: number): Promise<{
+  ok: boolean
+  status?: string
+  displayName?: string
+  error?: string
+}> {
+  await requireAdmin()
+  await ensureTable()
+  const rows = await query<{ refresh_token: string; notes: string }>(
+    `SELECT refresh_token, notes FROM public.spotify_accounts WHERE id = $1`,
+    [accountId],
+  )
+  const refresh = rows[0]?.refresh_token
+  if (!refresh) return { ok: false, error: "sem token" }
+
+  const tokenRes = await fetch("https://accounts.spotify.com/api/token", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Authorization: "Basic " + Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString("base64"),
+    },
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      refresh_token: refresh,
+    }),
+  })
+  const tokenData = (await tokenRes.json()) as { access_token?: string; refresh_token?: string }
+  const access = tokenData.access_token
+  if (!access) {
+    await query(`UPDATE public.spotify_accounts SET status = 'morta', last_checked = now() WHERE id = $1`, [accountId])
+    return { ok: true, status: "morta" }
+  }
+
+  if (tokenData.refresh_token) {
+    await query(`UPDATE public.spotify_accounts SET refresh_token = $2 WHERE id = $1`, [accountId, tokenData.refresh_token])
+  }
+
+  const meRes = await fetch("https://api.spotify.com/v1/me", {
+    headers: { Authorization: `Bearer ${access}` },
+  })
+
+  if (!meRes.ok) {
+    await query(`UPDATE public.spotify_accounts SET status = 'morta', last_checked = now() WHERE id = $1`, [accountId])
+    return { ok: true, status: "morta" }
+  }
+
+  const me = (await meRes.json()) as { product?: string; display_name?: string }
+  const product = me.product || "free"
+  const status = product === "premium" ? "premium" : "free"
+  const displayName = me.display_name || ""
+
+  const currentNotes = rows[0]?.notes || ""
+  const notes = currentNotes || displayName
+
+  await query(
+    `UPDATE public.spotify_accounts SET status = $2, notes = $3, last_checked = now() WHERE id = $1`,
+    [accountId, status, notes],
+  )
+  return { ok: true, status, displayName }
+}
+
 export async function setSpotifyStatus(ids: number[], status: string): Promise<{ ok: boolean; updated: number }> {
   await requireAdmin()
   await ensureTable()

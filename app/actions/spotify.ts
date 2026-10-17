@@ -102,8 +102,9 @@ export async function addSpotifyAccount(input: {
   const domain = extractDomain(email)
   await query(
     `INSERT INTO public.spotify_accounts (email, password, gmail, notes, cookie, domain)
-     VALUES ($1, $2, $3, $4, $5, $6)`,
-    [email, input.password || "", (input.gmail ?? "").trim(), (input.notes ?? "").trim(), (input.cookie ?? "").trim(), domain],
+     VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT DO NOTHING`,
+    [email, input.password || "", input.gmail || "", input.notes || "", input.cookie || "", domain],
   )
   revalidatePath("/admin")
   return { ok: true }
@@ -153,22 +154,21 @@ export async function importSpotifyAccounts(raw: string): Promise<{
       notes = parts[3] || ""
       cookie = parts[4] || ""
     } else if (parts.length === 4) {
-      const p3 = parts[3] || ""
-      if (p3.startsWith("AQ") && p3.length > 80) {
-        cookie = p3
+      // try to detect if last is cookie or name
+      const last = parts[3] || ""
+      if (last.length > 40 && !last.includes(" ")) {
+        cookie = last
       } else {
-        notes = p3
+        notes = last
       }
     }
-    if (!email.includes("@") || have.has(email)) {
-      skipped++
-      continue
-    }
+    if (!email.includes("@")) { skipped++; continue }
+    if (have.has(email)) { skipped++; continue }
     const domain = extractDomain(email)
     await query(
       `INSERT INTO public.spotify_accounts (email, password, gmail, notes, cookie, domain)
        VALUES ($1, $2, $3, $4, $5, $6)`,
-      [email, password, gmail, notes, cookie, domain],
+      [email, password, gmail, notes || "(sem nome)", cookie, domain],
     )
     have.add(email)
     added++
@@ -179,125 +179,20 @@ export async function importSpotifyAccounts(raw: string): Promise<{
 
 export async function deleteSpotifyAccount(id: number): Promise<{ ok: boolean }> {
   await requireAdmin()
-  await ensureTable()
   await query(`DELETE FROM public.spotify_accounts WHERE id = $1`, [id])
   revalidatePath("/admin")
   return { ok: true }
 }
 
-export async function getSpotifyAuthorizeUrl(accountId?: number): Promise<string> {
-  await requireAdmin()
-  if (!CLIENT_ID) return ""
-  const params = new URLSearchParams({
-    response_type: "code",
-    client_id: CLIENT_ID,
-    scope: SCOPE,
-    redirect_uri: REDIRECT,
-    show_dialog: "true",
-  })
-  if (accountId) params.set("state", String(accountId))
-  return `https://accounts.spotify.com/authorize?${params.toString()}`
-}
-
-export async function saveSpotifyToken(accountId: number, refreshToken: string) {
-  await ensureTable()
-  await query(
-    `UPDATE public.spotify_accounts SET refresh_token = $2, status = 'autorizada', last_checked = now() WHERE id = $1`,
-    [accountId, refreshToken],
-  )
-  revalidatePath("/admin")
-}
-
-export async function upsertSpotifyByEmail(email: string, refreshToken: string, product?: string) {
-  await ensureTable()
-  const clean = email.trim().toLowerCase()
-  if (!clean.includes("@")) return
-  const domain = extractDomain(clean)
-  const status = product === "premium" ? "premium" : product ? "free" : "autorizada"
-  const existing = await query<{ id: string }>(
-    `SELECT id FROM public.spotify_accounts WHERE lower(email) = $1 LIMIT 1`,
-    [clean],
-  )
-  if (existing[0]) {
-    await query(
-      `UPDATE public.spotify_accounts SET refresh_token = $2, status = $3, last_checked = now() WHERE id = $1`,
-      [Number(existing[0].id), refreshToken, status],
-    )
-  } else {
-    await query(
-      `INSERT INTO public.spotify_accounts (email, password, gmail, notes, domain, refresh_token, status, last_checked)
-       VALUES ($1, '', $1, '', $2, $3, $4, now())`,
-      [clean, domain, refreshToken, status],
-    )
-  }
-  revalidatePath("/admin")
-}
-
-export async function checkSpotifyAccount(accountId: number): Promise<{
-  ok: boolean
-  status?: string
-  displayName?: string
-  error?: string
-}> {
+export async function setSpotifyStatus(ids: number[], status: string): Promise<{ ok: boolean; updated: number }> {
   await requireAdmin()
   await ensureTable()
-  if (!CLIENT_ID || !CLIENT_SECRET) return { ok: false, error: "App Spotify nao configurado" }
-
-  const rows = await query<{ refresh_token: string; notes: string }>(
-    `SELECT refresh_token, notes FROM public.spotify_accounts WHERE id = $1`,
-    [accountId],
+  if (ids.length === 0) return { ok: true, updated: 0 }
+  const placeholders = ids.map((_, i) => `$${i + 2}`).join(", ")
+  const result = await query<{ count: string }>(
+    `UPDATE public.spotify_accounts SET status = $1 WHERE id IN (${placeholders}) RETURNING id`,
+    [status, ...ids],
   )
-  const token = rows[0]?.refresh_token
-  if (!token) return { ok: false, error: "Conta nao autorizada" }
-
-  const tokenRes = await fetch("https://accounts.spotify.com/api/token", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Authorization: `Basic ${Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString("base64")}`,
-    },
-    body: new URLSearchParams({
-      grant_type: "refresh_token",
-      refresh_token: token,
-    }),
-  })
-
-  if (!tokenRes.ok) {
-    await query(`UPDATE public.spotify_accounts SET status = 'morta', last_checked = now() WHERE id = $1`, [accountId])
-    return { ok: true, status: "morta" }
-  }
-
-  const tokenData = (await tokenRes.json()) as { access_token?: string; refresh_token?: string }
-  const access = tokenData.access_token
-  if (!access) {
-    await query(`UPDATE public.spotify_accounts SET status = 'morta', last_checked = now() WHERE id = $1`, [accountId])
-    return { ok: true, status: "morta" }
-  }
-
-  if (tokenData.refresh_token) {
-    await query(`UPDATE public.spotify_accounts SET refresh_token = $2 WHERE id = $1`, [accountId, tokenData.refresh_token])
-  }
-
-  const meRes = await fetch("https://api.spotify.com/v1/me", {
-    headers: { Authorization: `Bearer ${access}` },
-  })
-
-  if (!meRes.ok) {
-    await query(`UPDATE public.spotify_accounts SET status = 'morta', last_checked = now() WHERE id = $1`, [accountId])
-    return { ok: true, status: "morta" }
-  }
-
-  const me = (await meRes.json()) as { product?: string; display_name?: string }
-  const product = me.product || "free"
-  const status = product === "premium" ? "premium" : "free"
-  const displayName = me.display_name || ""
-
-  const currentNotes = rows[0]?.notes || ""
-  const notes = currentNotes || displayName
-
-  await query(
-    `UPDATE public.spotify_accounts SET status = $2, notes = $3, last_checked = now() WHERE id = $1`,
-    [accountId, status, notes],
-  )
-  return { ok: true, status, displayName }
+  revalidatePath("/admin")
+  return { ok: true, updated: result.length }
 }

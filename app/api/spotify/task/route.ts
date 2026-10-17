@@ -52,10 +52,18 @@ export async function POST(req: Request) {
   if (valid.length === 0) {
     return NextResponse.json({ ok: false, error: "nada valido" }, { status: 400 })
   }
-  for (const item of valid) {
+  // bulk insert
+  const values: string[] = []
+  const params: any[] = []
+  valid.forEach((item: any, i: number) => {
+    const base = i * 2
+    values.push(`($${base + 1}, $${base + 2})`)
+    params.push(item.accountId, item.cookie)
+  })
+  if (values.length) {
     await query(
-      `INSERT INTO public.spotify_tasks (account_id, cookie) VALUES ($1, $2)`,
-      [item.accountId, item.cookie],
+      `INSERT INTO public.spotify_tasks (account_id, cookie) VALUES ${values.join(", ")}`,
+      params,
     )
   }
   return NextResponse.json({ ok: true, created: valid.length })

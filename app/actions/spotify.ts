@@ -154,7 +154,6 @@ export async function importSpotifyAccounts(raw: string): Promise<{
       notes = parts[3] || ""
       cookie = parts[4] || ""
     } else if (parts.length === 4) {
-      // try to detect if last is cookie or name
       const last = parts[3] || ""
       if (last.length > 40 && !last.includes(" ")) {
         cookie = last

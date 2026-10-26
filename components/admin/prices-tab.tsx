@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react"
 import {
-  DollarSign,
   RefreshCw,
   Plus,
   Copy,
@@ -196,8 +195,8 @@ export function PricesTab() {
       </div>
 
       {/* Suppliers sidebar */}
-      <div className="flex w-80 shrink-0 flex-col rounded-xl border border-border bg-card">
-        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+      <div className="flex w-72 shrink-0 flex-col">
+        <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold">Fornecedores</h2>
           {selected && (
             <button
@@ -209,60 +208,56 @@ export function PricesTab() {
             </button>
           )}
         </div>
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 space-y-2 overflow-y-auto pr-1">
           {loading ? (
             <div className="py-12 text-center text-sm text-muted-foreground">Carregando...</div>
           ) : rows.length === 0 ? (
-            <div className="py-12 text-center text-sm text-muted-foreground">
+            <div className="rounded-xl border border-border bg-card py-12 text-center text-sm text-muted-foreground">
               Nenhum preco. Rode o scanner.
             </div>
           ) : (
-            <ul className="divide-y divide-border">
-              {rows.map((r, i) => (
-                <li
-                  key={`${r.username}-${r.label}-${i}`}
-                  className={`flex items-center justify-between px-4 py-3 ${
-                    r.out_of_stock ? "opacity-50" : ""
-                  }`}
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs text-muted-foreground">{r.label || "-"}</p>
-                    <div className="mt-0.5 flex items-center gap-1.5">
-                      <button
-                        onClick={() => copyUsername(r.username)}
-                        className="flex items-center gap-1 text-sm font-medium text-emerald-400 hover:underline"
-                      >
-                        {copied === r.username ? (
-                          <Check className="h-3 w-3" />
-                        ) : (
-                          <Copy className="h-3 w-3" />
-                        )}
-                        {r.username}
-                      </button>
-                      <a
-                        href={`https://t.me/${r.username.replace("@", "")}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-muted-foreground hover:text-foreground"
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
-                    </div>
+            rows.map((r, i) => (
+              <div
+                key={`${r.username}-${r.label}-${i}`}
+                className={`rounded-xl border border-border bg-card p-3 transition-colors hover:border-primary/50 ${
+                  r.out_of_stock ? "opacity-50" : ""
+                }`}
+              >
+                <p className="mb-1 truncate text-sm font-medium">{r.label || "-"}</p>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => copyUsername(r.username)}
+                      className="flex items-center gap-1 text-xs text-emerald-400 hover:underline"
+                    >
+                      {copied === r.username ? (
+                        <Check className="h-3 w-3" />
+                      ) : (
+                        <Copy className="h-3 w-3" />
+                      )}
+                      {r.username}
+                    </button>
+                    <a
+                      href={`https://t.me/${r.username.replace("@", "")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
                   </div>
-                  <div className="text-right">
-                    <span className="font-semibold tabular-nums">${Number(r.price).toFixed(2)}</span>
-                    {r.out_of_stock && (
-                      <p className="text-xs text-destructive">Sem estoque</p>
-                    )}
+                  <span className="text-lg font-bold tabular-nums">${Number(r.price).toFixed(2)}</span>
+                </div>
+                {(r.out_of_stock || r.last_restock) && (
+                  <div className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground">
+                    {r.out_of_stock && <span className="text-destructive">Sem estoque</span>}
                     {r.last_restock && (
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(r.last_restock).toLocaleDateString("pt-BR")}
-                      </p>
+                      <span>Restock: {new Date(r.last_restock).toLocaleDateString("pt-BR")}</span>
                     )}
                   </div>
-                </li>
-              ))}
-            </ul>
+                )}
+              </div>
+            ))
           )}
         </div>
       </div>

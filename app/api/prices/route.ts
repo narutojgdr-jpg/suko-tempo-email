@@ -16,6 +16,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "invalid payload" }, { status: 400 })
   }
 
+  await query(`DELETE FROM public.price_scans WHERE keyword = $1`, [keyword])
+
   let saved = 0
   for (const r of results) {
     if (!r.username) continue
@@ -23,13 +25,7 @@ export async function POST(req: NextRequest) {
     try {
       await query(
         `INSERT INTO public.price_scans (keyword, username, label, price, out_of_stock, last_restock, snippet, scanned_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, now())
-         ON CONFLICT (keyword, username, label) DO UPDATE SET
-           price = EXCLUDED.price,
-           out_of_stock = EXCLUDED.out_of_stock,
-           last_restock = EXCLUDED.last_restock,
-           snippet = EXCLUDED.snippet,
-           scanned_at = now()`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, now())`,
         [
           keyword,
           r.username,

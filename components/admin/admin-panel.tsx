@@ -18,6 +18,7 @@ import {
   ShieldBan,
   Music,
   Menu,
+  DollarSign,
 } from "lucide-react"
 import { formatUsd, formatBytes } from "@/lib/money"
 import type {
@@ -38,12 +39,14 @@ import { ResellersTab } from "@/components/admin/resellers-tab"
 import { ChatTab } from "@/components/admin/chat-tab"
 import { BlocklistTab } from "@/components/admin/blocklist-tab"
 import { SpotifyTab } from "@/components/admin/spotify-tab"
+import { PricesTab } from "@/components/admin/prices-tab"
 
 type Tab =
   | "dashboard"
   | "accounts"
   | "pool"
   | "spotify"
+  | "prices"
   | "resellers"
   | "chat"
   | "blocklist"
@@ -66,6 +69,7 @@ const NAV: { id: Tab; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "accounts", label: "Accounts", icon: Users },
   { id: "pool", label: "Gmail Pool", icon: Mail },
   { id: "spotify", label: "Spotify", icon: Music },
+  { id: "prices", label: "Preços", icon: DollarSign },
   { id: "resellers", label: "Revendedores", icon: Store },
   { id: "chat", label: "SuKo AI", icon: Bot },
   { id: "blocklist", label: "Bloqueios", icon: ShieldBan },
@@ -140,6 +144,7 @@ export function AdminPanel({
         {tab === "accounts" && <AccountsTab accounts={accounts} gmailPriceCents={stats.gmailPriceCents} />}
         {tab === "pool" && <PoolTab gmails={gmails} />}
         {tab === "spotify" && <SpotifyTab accounts={spotifyAccounts} />}
+        {tab === "prices" && <PricesTab />}
         {tab === "resellers" && <ResellersTab pages={resellerPages} />}
         {tab === "chat" && <ChatTab />}
         {tab === "blocklist" && <BlocklistTab />}

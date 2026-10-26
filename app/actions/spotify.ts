@@ -27,6 +27,10 @@ function extractDomain(email: string): string {
   return parts.slice(-2).join(".")
 }
 
+function looksLikeCookie(s: string): boolean {
+  return s.length > 40 && !s.includes(" ") && !s.includes("@")
+}
+
 async function ensureTable() {
   await query(`
     CREATE TABLE IF NOT EXISTS public.spotify_accounts (
@@ -145,22 +149,38 @@ export async function importSpotifyAccounts(raw: string): Promise<{
   let skipped = 0
   for (const line of lines) {
     const parts = line.split("|").map((p) => p.trim())
-    const email = (parts[0] || "").toLowerCase()
-    const password = parts[1] || ""
-    const gmail = parts[2] || ""
+    let email = (parts[0] || "").toLowerCase()
+    let password = parts[1] || ""
+    let gmail = ""
     let notes = ""
     let cookie = ""
+
     if (parts.length >= 5) {
+      gmail = parts[2] || ""
       notes = parts[3] || ""
       cookie = parts[4] || ""
     } else if (parts.length === 4) {
-      const last = parts[3] || ""
-      if (last.length > 40 && !last.includes(" ")) {
+      const p2 = parts[2] || ""
+      const p3 = parts[3] || ""
+      if (looksLikeCookie(p3)) {
+        gmail = p2
+        cookie = p3
+      } else if (looksLikeCookie(p2)) {
+        cookie = p2
+        notes = p3
+      } else {
+        gmail = p2
+        notes = p3
+      }
+    } else if (parts.length === 3) {
+      const last = parts[2] || ""
+      if (looksLikeCookie(last)) {
         cookie = last
       } else {
-        notes = last
+        gmail = last
       }
     }
+
     if (!email.includes("@")) { skipped++; continue }
     if (have.has(email)) { skipped++; continue }
     const domain = extractDomain(email)

@@ -19,11 +19,12 @@ export async function POST(req: NextRequest) {
   let saved = 0
   for (const r of results) {
     if (!r.username) continue
+    const label = r.label || r.username
     try {
       await query(
-        `INSERT INTO public.price_scans (keyword, username, price, out_of_stock, last_restock, snippet, scanned_at)
-         VALUES ($1, $2, $3, $4, $5, $6, now())
-         ON CONFLICT (keyword, username) DO UPDATE SET
+        `INSERT INTO public.price_scans (keyword, username, label, price, out_of_stock, last_restock, snippet, scanned_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, now())
+         ON CONFLICT (keyword, username, label) DO UPDATE SET
            price = EXCLUDED.price,
            out_of_stock = EXCLUDED.out_of_stock,
            last_restock = EXCLUDED.last_restock,
@@ -32,6 +33,7 @@ export async function POST(req: NextRequest) {
         [
           keyword,
           r.username,
+          label,
           r.price ?? null,
           r.out_of_stock ?? false,
           r.last_restock ?? null,
@@ -52,7 +54,7 @@ export async function GET(req: NextRequest) {
   const keyword = searchParams.get("keyword") || "gemini"
 
   const rows = await query(
-    `SELECT username, price, out_of_stock, last_restock, snippet, scanned_at
+    `SELECT username, label, price, out_of_stock, last_restock, snippet, scanned_at
      FROM public.price_scans
      WHERE keyword = $1 AND price IS NOT NULL
      ORDER BY price ASC`,

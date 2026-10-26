@@ -5,6 +5,7 @@ import { DollarSign, RefreshCw } from "lucide-react"
 
 type PriceRow = {
   username: string
+  label: string | null
   price: number
   out_of_stock: boolean
   last_restock: string | null
@@ -86,27 +87,23 @@ export function PricesTab() {
       ) : (
         <div className="rounded-xl border border-border bg-card overflow-hidden">
           <ul className="divide-y divide-border">
-            {rows.map((r) => (
+            {rows.map((r, i) => (
               <li
-                key={r.username}
+                key={`${r.username}-${r.label}-${i}`}
                 className={`flex items-center justify-between px-4 py-3 ${
                   r.out_of_stock ? "opacity-50" : ""
                 }`}
               >
                 <div className="min-w-0">
+                  <p className="font-medium truncate">{r.label || r.username}</p>
                   <a
                     href={`https://t.me/${r.username.replace("@", "")}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="font-medium text-emerald-400 hover:underline truncate block"
+                    className="text-xs text-emerald-400 hover:underline"
                   >
                     {r.username}
                   </a>
-                  {r.last_restock && (
-                    <p className="text-xs text-muted-foreground">
-                      Restock: {new Date(r.last_restock).toLocaleString("pt-BR")}
-                    </p>
-                  )}
                 </div>
                 <div className="text-right">
                   <span className="text-lg font-semibold tabular-nums">

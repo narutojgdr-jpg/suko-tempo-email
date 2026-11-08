@@ -95,32 +95,36 @@ export async function importGoLoginFromText(raw: string): Promise<{
 }> {
   await requireAdmin()
   await ensureTable()
-  // Formato esperado do HTML: === email ===\nSenha: ...\nCookies JSON:\n[...]
+
+  // Formato real: === email | senha ===\n[ JSON array ]\n\n=== ...
   const blocks = raw.split(/===\s*/).map((b) => b.trim()).filter(Boolean)
   let added = 0
   let skipped = 0
 
   for (const block of blocks) {
-    const lines = block.split(/\r?\n/).map((l) => l.trim())
-    const emailLine = lines[0] || ""
-    const email = emailLine.replace(/===/g, "").trim().toLowerCase()
-    if (!email.includes("@")) { skipped++; continue }
+    const lines = block.split(/\r?\n/)
+    const header = (lines[0] || "").replace(/===/g, "").trim()
+    if (!header.includes("@")) { skipped++; continue }
 
+    let email = ""
     let password = ""
-    let cookies = ""
-    let notes = ""
-
-    for (const line of lines.slice(1)) {
-      if (line.toLowerCase().startsWith("senha:")) {
-        password = line.slice(6).trim()
-      } else if (line.toLowerCase().startsWith("cookies json:")) {
-        // pega o resto como cookies
-      }
+    if (header.includes("|")) {
+      const parts = header.split("|").map((p) => p.trim())
+      email = parts[0].toLowerCase()
+      password = parts[1] || ""
+    } else {
+      email = header.toLowerCase()
     }
 
-    const cookieStart = block.toLowerCase().indexOf("cookies json:")
-    if (cookieStart >= 0) {
-      cookies = block.slice(cookieStart + 13).trim()
+    if (!email.includes("@")) { skipped++; continue }
+
+    // Pega o JSON a partir do primeiro [
+    const jsonStart = block.indexOf("[")
+    let cookies = ""
+    if (jsonStart >= 0) {
+      cookies = block.slice(jsonStart).trim()
+      // Valida se é JSON
+      try { JSON.parse(cookies) } catch { cookies = "" }
     }
 
     await query(
@@ -130,7 +134,7 @@ export async function importGoLoginFromText(raw: string): Promise<{
          password = EXCLUDED.password,
          cookies = EXCLUDED.cookies,
          notes = EXCLUDED.notes`,
-      [email, password, cookies, notes],
+      [email, password, cookies, ""],
     )
     added++
   }

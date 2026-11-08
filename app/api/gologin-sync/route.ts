@@ -1,8 +1,20 @@
 import { NextResponse } from "next/server"
-import { listGoLoginAccounts, upsertGoLoginAccount, importGoLoginFromText } from "@/app/actions/gologin"
+import { query } from "@/lib/db"
 
-// Chave fixa pra o app local poder sincronizar sem login
 const SYNC_KEY = "suko-gl-sync-2026"
+
+async function ensureTable() {
+  await query(`
+    CREATE TABLE IF NOT EXISTS public.gologin_accounts (
+      id BIGSERIAL PRIMARY KEY,
+      email TEXT NOT NULL UNIQUE,
+      password TEXT NOT NULL DEFAULT '',
+      cookies TEXT NOT NULL DEFAULT '',
+      notes TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `)
+}
 
 function checkKey(req: Request) {
   const url = new URL(req.url)
@@ -13,36 +25,86 @@ function checkKey(req: Request) {
 export async function GET(req: Request) {
   if (!checkKey(req)) return NextResponse.json({ error: "no" }, { status: 401 })
   try {
-    const accounts = await listGoLoginAccounts()
-    const items = accounts.map((a) => ({
-      email: a.email,
-      pass: a.password,
-      cookies: a.cookies,
+    await ensureTable()
+    const rows = await query<{
+      email: string
+      password: string
+      cookies: string
+    }>(
+      `SELECT email, password, cookies FROM public.gologin_accounts ORDER BY created_at DESC`,
+    )
+    const items = rows.map((r) => ({
+      email: r.email,
+      pass: r.password,
+      cookies: r.cookies,
     }))
     return NextResponse.json({ items, count: items.length })
-  } catch {
-    return NextResponse.json({ error: "fail" }, { status: 500 })
+  } catch (err: any) {
+    return NextResponse.json({ error: err?.message || "fail" }, { status: 500 })
   }
 }
 
 export async function POST(req: Request) {
   if (!checkKey(req)) return NextResponse.json({ error: "no" }, { status: 401 })
   try {
+    await ensureTable()
     const body = await req.json()
+
     if (body.raw) {
-      const result = await importGoLoginFromText(body.raw)
-      return NextResponse.json(result)
+      // Importa o formato === email | senha ===\n[json]
+      const blocks = String(body.raw).split(/===\s*/).map((b: string) => b.trim()).filter(Boolean)
+      let added = 0
+      for (const block of blocks) {
+        const lines = block.split(/\r?\n/)
+        const header = (lines[0] || "").replace(/===/g, "").trim()
+        if (!header.includes("@")) continue
+        let email = ""
+        let password = ""
+        if (header.includes("|")) {
+          const parts = header.split("|").map((p: string) => p.trim())
+          email = parts[0].toLowerCase()
+          password = parts[1] || ""
+        } else {
+          email = header.toLowerCase()
+        }
+        if (!email.includes("@")) continue
+        const jsonStart = block.indexOf("[")
+        let cookies = ""
+        if (jsonStart >= 0) {
+          cookies = block.slice(jsonStart).trim()
+          try { JSON.parse(cookies) } catch { cookies = "" }
+        }
+        await query(
+          `INSERT INTO public.gologin_accounts (email, password, cookies, notes)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (email) DO UPDATE SET
+             password = EXCLUDED.password,
+             cookies = EXCLUDED.cookies,
+             notes = EXCLUDED.notes`,
+          [email, password, cookies, ""],
+        )
+        added++
+      }
+      return NextResponse.json({ ok: true, added })
     }
+
     if (body.email) {
-      const result = await upsertGoLoginAccount({
-        email: body.email,
-        password: body.pass || body.password,
-        cookies: body.cookies,
-      })
-      return NextResponse.json(result)
+      const email = String(body.email).trim().toLowerCase()
+      if (!email.includes("@")) return NextResponse.json({ ok: false, error: "email" })
+      await query(
+        `INSERT INTO public.gologin_accounts (email, password, cookies, notes)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (email) DO UPDATE SET
+           password = EXCLUDED.password,
+           cookies = EXCLUDED.cookies,
+           notes = EXCLUDED.notes`,
+        [email, body.pass || body.password || "", body.cookies || "", body.notes || ""],
+      )
+      return NextResponse.json({ ok: true })
     }
+
     return NextResponse.json({ ok: false })
-  } catch {
-    return NextResponse.json({ error: "fail" }, { status: 500 })
+  } catch (err: any) {
+    return NextResponse.json({ error: err?.message || "fail" }, { status: 500 })
   }
 }

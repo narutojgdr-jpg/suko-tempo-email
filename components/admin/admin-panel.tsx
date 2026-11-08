@@ -19,6 +19,7 @@ import {
   Music,
   Menu,
   DollarSign,
+  Monitor,
 } from "lucide-react"
 import { formatUsd, formatBytes } from "@/lib/money"
 import type {
@@ -40,11 +41,13 @@ import { ChatTab } from "@/components/admin/chat-tab"
 import { BlocklistTab } from "@/components/admin/blocklist-tab"
 import { SpotifyTab } from "@/components/admin/spotify-tab"
 import { PricesTab } from "@/components/admin/prices-tab"
+import { GoLoginTab } from "@/components/admin/gologin-tab"
 
 type Tab =
   | "dashboard"
   | "accounts"
   | "pool"
+  | "gologin"
   | "spotify"
   | "prices"
   | "resellers"
@@ -68,6 +71,7 @@ const NAV: { id: Tab; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "accounts", label: "Accounts", icon: Users },
   { id: "pool", label: "Gmail Pool", icon: Mail },
+  { id: "gologin", label: "GoLogin", icon: Monitor },
   { id: "spotify", label: "Spotify", icon: Music },
   { id: "prices", label: "Preços", icon: DollarSign },
   { id: "resellers", label: "Revendedores", icon: Store },
@@ -92,7 +96,7 @@ export function AdminPanel({
 
   function select(id: Tab) {
     setTab(id)
-    if (id === "spotify") setCollapsed(true)
+    if (id === "spotify" || id === "gologin") setCollapsed(true)
   }
 
   return (
@@ -143,6 +147,7 @@ export function AdminPanel({
         {tab === "dashboard" && <Dashboard stats={stats} transactions={transactions} usage={usage} />}
         {tab === "accounts" && <AccountsTab accounts={accounts} gmailPriceCents={stats.gmailPriceCents} />}
         {tab === "pool" && <PoolTab gmails={gmails} />}
+        {tab === "gologin" && <GoLoginTab />}
         {tab === "spotify" && <SpotifyTab accounts={spotifyAccounts} />}
         {tab === "prices" && <PricesTab />}
         {tab === "resellers" && <ResellersTab pages={resellerPages} />}

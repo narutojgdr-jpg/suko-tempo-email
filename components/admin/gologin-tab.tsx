@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { Mail, RefreshCw, Trash2, CheckSquare, Square } from "lucide-react"
+import { useEffect, useState, useMemo } from "react"
+import { Mail, RefreshCw, Trash2, CheckSquare, Square, Search } from "lucide-react"
 import { deleteGoLoginAccounts } from "@/app/actions/gologin"
 
 type Item = {
@@ -19,6 +19,7 @@ export function GoLoginTab() {
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [importText, setImportText] = useState("")
   const [importing, setImporting] = useState(false)
+  const [search, setSearch] = useState("")
 
   async function load() {
     setLoading(true)
@@ -40,6 +41,12 @@ export function GoLoginTab() {
     load()
   }, [])
 
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return items
+    return items.filter((i) => i.email.toLowerCase().includes(q))
+  }, [items, search])
+
   function toggle(id: number) {
     const next = new Set(selected)
     if (next.has(id)) next.delete(id)
@@ -48,10 +55,10 @@ export function GoLoginTab() {
   }
 
   function selectAll() {
-    if (selected.size === items.length) {
+    if (selected.size === filtered.length) {
       setSelected(new Set())
     } else {
-      setSelected(new Set(items.map((i) => i.id)))
+      setSelected(new Set(filtered.map((i) => i.id)))
     }
   }
 
@@ -95,7 +102,7 @@ export function GoLoginTab() {
             GoLogin Gmails
           </h1>
           <p className="text-sm text-muted-foreground">
-            {items.length} contas. Sincroniza com o app local.
+            {filtered.length}{search ? ` de ${items.length}` : ""} contas. Sincroniza com o app local.
           </p>
         </div>
         <div className="flex gap-2">
@@ -103,7 +110,7 @@ export function GoLoginTab() {
             onClick={selectAll}
             className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm hover:bg-muted"
           >
-            {selected.size === items.length && items.length > 0 ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+            {selected.size === filtered.length && filtered.length > 0 ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
             Selecionar
           </button>
           <button
@@ -148,13 +155,24 @@ export function GoLoginTab() {
         </button>
       </div>
 
-      {items.length === 0 && !loading ? (
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar gmail..."
+          className="w-full rounded-lg border border-border bg-card py-2 pl-9 pr-3 text-sm"
+        />
+      </div>
+
+      {filtered.length === 0 && !loading ? (
         <p className="py-12 text-center text-sm text-muted-foreground">
-          Nenhuma conta ainda. Importa pelo campo acima ou pelo app.
+          {search ? "Nenhum resultado." : "Nenhuma conta ainda. Importa pelo campo acima ou pelo app."}
         </p>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map((item) => (
+          {filtered.map((item) => (
             <div
               key={item.id}
               className={`rounded-xl border bg-card p-4 transition-colors ${selected.has(item.id) ? "border-primary" : "border-border"}`}

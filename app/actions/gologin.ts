@@ -91,7 +91,6 @@ function extractCookies(block: string): string {
   const jsonStart = block.indexOf("[")
   if (jsonStart < 0) return ""
   let candidate = block.slice(jsonStart).trim()
-  // Tenta cortar até o último ]
   const lastBracket = candidate.lastIndexOf("]")
   if (lastBracket > 0) {
     candidate = candidate.slice(0, lastBracket + 1)
@@ -112,39 +111,42 @@ export async function importGoLoginFromText(raw: string): Promise<{
   await requireAdmin()
   await ensureTable()
 
-  const blocks = raw.split(/===\s*/).map((b) => b.trim()).filter(Boolean)
+  // Split on === and pair header (email | pass) with following JSON block
+  const parts = raw.split(/===\s*/).map((b) => b.trim()).filter(Boolean)
   let added = 0
   let skipped = 0
 
-  for (const block of blocks) {
-    const lines = block.split(/\r?\n/)
-    const header = (lines[0] || "").replace(/===/g, "").trim()
-    if (!header.includes("@")) { skipped++; continue }
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i]
+    // Header has @ and | but no [
+    if (part.includes("@") && part.includes("|") && !part.includes("[")) {
+      const header = part.replace(/===/g, "").trim()
+      const hp = header.split("|").map((p) => p.trim())
+      const email = hp[0].toLowerCase()
+      const password = hp[1] || ""
 
-    let email = ""
-    let password = ""
-    if (header.includes("|")) {
-      const parts = header.split("|").map((p) => p.trim())
-      email = parts[0].toLowerCase()
-      password = parts[1] || ""
+      if (!email.includes("@")) { skipped++; continue }
+
+      // Next part should be the JSON
+      let cookies = ""
+      if (i + 1 < parts.length) {
+        cookies = extractCookies(parts[i + 1])
+        if (cookies) i++ // consume the json part
+      }
+
+      await query(
+        `INSERT INTO public.gologin_accounts (email, password, cookies, notes)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (email) DO UPDATE SET
+           password = EXCLUDED.password,
+           cookies = EXCLUDED.cookies,
+           notes = EXCLUDED.notes`,
+        [email, password, cookies, ""],
+      )
+      added++
     } else {
-      email = header.toLowerCase()
+      skipped++
     }
-
-    if (!email.includes("@")) { skipped++; continue }
-
-    const cookies = extractCookies(block)
-
-    await query(
-      `INSERT INTO public.gologin_accounts (email, password, cookies, notes)
-       VALUES ($1, $2, $3, $4)
-       ON CONFLICT (email) DO UPDATE SET
-         password = EXCLUDED.password,
-         cookies = EXCLUDED.cookies,
-         notes = EXCLUDED.notes`,
-      [email, password, cookies, ""],
-    )
-    added++
   }
 
   revalidatePath("/admin")

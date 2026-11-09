@@ -1,8 +1,9 @@
 import { auth } from "@/lib/auth/server"
+import { query } from "@/lib/db"
 
 /**
- * The ONLY account allowed into the admin panel. Hardcoded on purpose so the
- * gate cannot be flipped from the database or the client. Lowercased compare.
+ * The ONLY account that can manage other admins. Hardcoded on purpose.
+ * Lowercased compare.
  */
 export const ADMIN_EMAIL = "izukisukinho@gmail.com"
 
@@ -24,15 +25,48 @@ export async function getSessionEmail(): Promise<string | null> {
   }
 }
 
-/** True only when the currently logged-in Google account is the admin. */
+async function ensureAdminsTable() {
+  await query(`
+    CREATE TABLE IF NOT EXISTS public.extra_admins (
+      email TEXT PRIMARY KEY,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `)
+}
+
+/** True when the currently logged-in Google account is the main admin or an extra admin. */
 export async function isAdmin(): Promise<boolean> {
+  const email = await getSessionEmail()
+  if (!email) return false
+  if (email === ADMIN_EMAIL) return true
+  try {
+    await ensureAdminsTable()
+    const rows = await query<{ email: string }>(
+      `SELECT email FROM public.extra_admins WHERE email = $1`,
+      [email],
+    )
+    return rows.length > 0
+  } catch {
+    return false
+  }
+}
+
+/** True only for the main admin (can manage other admins). */
+export async function isMainAdmin(): Promise<boolean> {
   const email = await getSessionEmail()
   return email === ADMIN_EMAIL
 }
 
-/** Throws unless the caller is the admin. Use at the top of every admin action. */
+/** Throws unless the caller is an admin. */
 export async function requireAdmin(): Promise<void> {
   if (!(await isAdmin())) {
+    throw new Error("Unauthorized")
+  }
+}
+
+/** Throws unless the caller is the main admin. */
+export async function requireMainAdmin(): Promise<void> {
+  if (!(await isMainAdmin())) {
     throw new Error("Unauthorized")
   }
 }

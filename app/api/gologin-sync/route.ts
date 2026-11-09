@@ -22,6 +22,21 @@ function checkKey(req: Request) {
   return key === SYNC_KEY
 }
 
+function extractCookies(block: string): string {
+  const jsonStart = block.indexOf("[")
+  if (jsonStart < 0) return ""
+  let candidate = block.slice(jsonStart).trim()
+  const lastBracket = candidate.lastIndexOf("]")
+  if (lastBracket > 0) {
+    candidate = candidate.slice(0, lastBracket + 1)
+  }
+  try {
+    const parsed = JSON.parse(candidate)
+    if (Array.isArray(parsed)) return JSON.stringify(parsed)
+  } catch {}
+  return ""
+}
+
 export async function GET(req: Request) {
   if (!checkKey(req)) return NextResponse.json({ error: "no" }, { status: 401 })
   try {
@@ -51,7 +66,6 @@ export async function POST(req: Request) {
     const body = await req.json()
 
     if (body.raw) {
-      // Importa o formato === email | senha ===\n[json]
       const blocks = String(body.raw).split(/===\s*/).map((b: string) => b.trim()).filter(Boolean)
       let added = 0
       for (const block of blocks) {
@@ -68,12 +82,7 @@ export async function POST(req: Request) {
           email = header.toLowerCase()
         }
         if (!email.includes("@")) continue
-        const jsonStart = block.indexOf("[")
-        let cookies = ""
-        if (jsonStart >= 0) {
-          cookies = block.slice(jsonStart).trim()
-          try { JSON.parse(cookies) } catch { cookies = "" }
-        }
+        const cookies = extractCookies(block)
         await query(
           `INSERT INTO public.gologin_accounts (email, password, cookies, notes)
            VALUES ($1, $2, $3, $4)
@@ -91,6 +100,10 @@ export async function POST(req: Request) {
     if (body.email) {
       const email = String(body.email).trim().toLowerCase()
       if (!email.includes("@")) return NextResponse.json({ ok: false, error: "email" })
+      let cookies = body.cookies || ""
+      if (typeof cookies !== "string") {
+        try { cookies = JSON.stringify(cookies) } catch { cookies = "" }
+      }
       await query(
         `INSERT INTO public.gologin_accounts (email, password, cookies, notes)
          VALUES ($1, $2, $3, $4)
@@ -98,7 +111,7 @@ export async function POST(req: Request) {
            password = EXCLUDED.password,
            cookies = EXCLUDED.cookies,
            notes = EXCLUDED.notes`,
-        [email, body.pass || body.password || "", body.cookies || "", body.notes || ""],
+        [email, body.pass || body.password || "", cookies, body.notes || ""],
       )
       return NextResponse.json({ ok: true })
     }

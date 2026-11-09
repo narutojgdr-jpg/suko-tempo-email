@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation"
-import { isAdmin } from "@/lib/admin"
+import { isAdmin, isMainAdmin } from "@/lib/admin"
 import {
   listAccounts,
   listGmails,
@@ -21,6 +21,8 @@ export default async function AdminPage() {
   if (!(await isAdmin())) {
     redirect("/")
   }
+
+  const mainAdmin = await isMainAdmin()
 
   const [stats, accounts, gmails, wishlist, transactions, usage, resellerPages, spotifyAccounts] =
     await Promise.all([
@@ -44,6 +46,7 @@ export default async function AdminPage() {
       usage={usage}
       resellerPages={resellerPages}
       spotifyAccounts={spotifyAccounts}
+      isMainAdmin={mainAdmin}
     />
   )
 }

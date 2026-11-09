@@ -20,6 +20,7 @@ import {
   Menu,
   DollarSign,
   Monitor,
+  Shield,
 } from "lucide-react"
 import { formatUsd, formatBytes } from "@/lib/money"
 import type {
@@ -42,6 +43,7 @@ import { BlocklistTab } from "@/components/admin/blocklist-tab"
 import { SpotifyTab } from "@/components/admin/spotify-tab"
 import { PricesTab } from "@/components/admin/prices-tab"
 import { GoLoginTab } from "@/components/admin/gologin-tab"
+import { AdminsTab } from "@/components/admin/admins-tab"
 
 type Tab =
   | "dashboard"
@@ -55,6 +57,7 @@ type Tab =
   | "blocklist"
   | "wishlist"
   | "transactions"
+  | "admins"
 
 interface AdminPanelProps {
   stats: DashboardStats
@@ -65,21 +68,8 @@ interface AdminPanelProps {
   usage: StorageUsage
   resellerPages: ResellerPageRow[]
   spotifyAccounts: SpotifyAccount[]
+  isMainAdmin: boolean
 }
-
-const NAV: { id: Tab; label: string; icon: typeof LayoutDashboard }[] = [
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "accounts", label: "Accounts", icon: Users },
-  { id: "pool", label: "Gmail Pool", icon: Mail },
-  { id: "gologin", label: "GoLogin", icon: Monitor },
-  { id: "spotify", label: "Spotify", icon: Music },
-  { id: "prices", label: "Preços", icon: DollarSign },
-  { id: "resellers", label: "Revendedores", icon: Store },
-  { id: "chat", label: "SuKo AI", icon: Bot },
-  { id: "blocklist", label: "Bloqueios", icon: ShieldBan },
-  { id: "wishlist", label: "Wishlist", icon: Star },
-  { id: "transactions", label: "Transactions", icon: ReceiptText },
-]
 
 export function AdminPanel({
   stats,
@@ -90,9 +80,28 @@ export function AdminPanel({
   usage,
   resellerPages,
   spotifyAccounts,
+  isMainAdmin,
 }: AdminPanelProps) {
   const [tab, setTab] = useState<Tab>("dashboard")
   const [collapsed, setCollapsed] = useState(false)
+
+  const NAV: { id: Tab; label: string; icon: typeof LayoutDashboard }[] = [
+    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { id: "accounts", label: "Accounts", icon: Users },
+    { id: "pool", label: "Gmail Pool", icon: Mail },
+    { id: "gologin", label: "GoLogin", icon: Monitor },
+    { id: "spotify", label: "Spotify", icon: Music },
+    { id: "prices", label: "Preços", icon: DollarSign },
+    { id: "resellers", label: "Revendedores", icon: Store },
+    { id: "chat", label: "SuKo AI", icon: Bot },
+    { id: "blocklist", label: "Bloqueios", icon: ShieldBan },
+    { id: "wishlist", label: "Wishlist", icon: Star },
+    { id: "transactions", label: "Transactions", icon: ReceiptText },
+  ]
+
+  if (isMainAdmin) {
+    NAV.push({ id: "admins", label: "Admins", icon: Shield })
+  }
 
   function select(id: Tab) {
     setTab(id)
@@ -155,6 +164,7 @@ export function AdminPanel({
         {tab === "blocklist" && <BlocklistTab />}
         {tab === "wishlist" && <WishlistTab wishlist={wishlist} />}
         {tab === "transactions" && <TransactionsTab transactions={transactions} />}
+        {tab === "admins" && isMainAdmin && <AdminsTab />}
       </main>
     </div>
   )

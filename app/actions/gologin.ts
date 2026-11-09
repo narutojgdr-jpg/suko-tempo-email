@@ -87,6 +87,22 @@ export async function deleteGoLoginAccounts(ids: number[]): Promise<{ ok: boolea
   return { ok: true, deleted: res.length }
 }
 
+function extractCookies(block: string): string {
+  const jsonStart = block.indexOf("[")
+  if (jsonStart < 0) return ""
+  let candidate = block.slice(jsonStart).trim()
+  // Tenta cortar até o último ]
+  const lastBracket = candidate.lastIndexOf("]")
+  if (lastBracket > 0) {
+    candidate = candidate.slice(0, lastBracket + 1)
+  }
+  try {
+    const parsed = JSON.parse(candidate)
+    if (Array.isArray(parsed)) return JSON.stringify(parsed)
+  } catch {}
+  return ""
+}
+
 export async function importGoLoginFromText(raw: string): Promise<{
   ok: boolean
   added: number
@@ -96,7 +112,6 @@ export async function importGoLoginFromText(raw: string): Promise<{
   await requireAdmin()
   await ensureTable()
 
-  // Formato real: === email | senha ===\n[ JSON array ]\n\n=== ...
   const blocks = raw.split(/===\s*/).map((b) => b.trim()).filter(Boolean)
   let added = 0
   let skipped = 0
@@ -118,14 +133,7 @@ export async function importGoLoginFromText(raw: string): Promise<{
 
     if (!email.includes("@")) { skipped++; continue }
 
-    // Pega o JSON a partir do primeiro [
-    const jsonStart = block.indexOf("[")
-    let cookies = ""
-    if (jsonStart >= 0) {
-      cookies = block.slice(jsonStart).trim()
-      // Valida se é JSON
-      try { JSON.parse(cookies) } catch { cookies = "" }
-    }
+    const cookies = extractCookies(block)
 
     await query(
       `INSERT INTO public.gologin_accounts (email, password, cookies, notes)
